@@ -1,34 +1,45 @@
 {
+  // TypeScript 5.x — targeting ES2022 gives us top-level await,
+  // class fields, and Object.hasOwn() without any polyfill burden.
   "compilerOptions": {
-    "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "noEmit": true,
-    "esModuleInterop": true,
+    "target": "ES2022",
+    "lib": ["dom", "dom.iterable", "ES2022"],
+
+    // Module resolution
     "module": "esnext",
-    "moduleResolution": "bundler",
+    "moduleResolution": "bundler",   // matches Next.js 16 / Turbopack resolver
     "resolveJsonModule": true,
     "isolatedModules": true,
+
+    // Output
+    "noEmit": true,
     "jsx": "react-jsx",
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
+
+    // Strictness
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    // Interop
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+
+    // Path aliases — @/* maps to the project root
     "paths": {
       "@/*": ["./*"]
-    }
+    },
+
+    // Next.js plugin (powers in-editor type checking for App Router)
+    "plugins": [{ "name": "next" }]
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    ".next/types/**/*.ts"
   ],
   "exclude": ["node_modules"]
 }

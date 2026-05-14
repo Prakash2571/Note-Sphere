@@ -1,12 +1,10 @@
 /**
  * app/api/auth/[...nextauth]/route.ts
- * NextAuth catch-all route handler.
- * All auth requests (/api/auth/signin, /api/auth/callback, etc.) are handled here.
+ *
+ * Auth.js v5 route handler.
+ * Simply re-exports the GET and POST handlers from our central auth config.
+ * All /api/auth/* requests (signin, callback, signout, session, csrf) are
+ * handled automatically by Auth.js via these two exports.
  */
 
-import NextAuth from "next-auth";
-import { authOptions } from "@/lib/auth";
-
-const handler = NextAuth(authOptions);
-
-export { handler as GET, handler as POST };
+export { GET, POST } from "@/lib/auth";

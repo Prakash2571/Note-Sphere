@@ -1,18 +1,20 @@
 /**
  * types/next-auth.d.ts
- * Extends the default NextAuth types to include our custom `id` field on the session user.
+ *
+ * Augments Auth.js v5 types to include our custom fields.
+ *
+ * Auth.js v5 uses a flat `DefaultSession["user"]` type.
+ * We add `id` so that `session.user.id` is typed everywhere
+ * without casting.
  */
 
-import "next-auth";
+import type { DefaultSession } from "next-auth";
 
 declare module "next-auth" {
   interface Session {
     user: {
       id: string;
-      name?: string | null;
-      email?: string | null;
-      image?: string | null;
-    };
+    } & DefaultSession["user"]; // keeps name, email, image
   }
 }
 

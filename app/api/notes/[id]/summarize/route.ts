@@ -1,67 +1,63 @@
 /**
  * app/api/notes/[id]/summarize/route.ts
  * POST /api/notes/:id/summarize
- * Sends the note's extracted text to Gemini and saves the summary to MongoDB.
+ *
+ * Accepts text extracted client-side from the PDF,
+ * sends it to Gemini, and persists the summary in MongoDB.
+ *
+ * Next.js 15: params is a Promise.
+ * Auth.js v5: auth() replaces getServerSession.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import { summarizeText } from "@/lib/gemini";
 import Note from "@/models/Note";
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+type RouteParams = { params: Promise<{ id: string }> };
+
+export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
     await connectDB();
 
-    // Fetch note including the hidden extractedText field
-    const note = await Note.findOne({
-      _id: params.id,
-      userId: session.user.id,
-    }).select("+extractedText");
+    // +extractedText re-includes the field excluded by default in the schema
+    const note = await Note.findOne({ _id: id, userId: session.user.id })
+      .select("+extractedText");
 
-    if (!note) {
-      return NextResponse.json({ error: "Note not found" }, { status: 404 });
-    }
+    if (!note) return NextResponse.json({ error: "Note not found" }, { status: 404 });
 
-    // The extracted text can come from the request body (sent from client-side PDF parsing)
-    // or from previously stored extractedText
-    const body = await req.json().catch(() => ({}));
-    const textToSummarize: string = body.extractedText || note.extractedText || "";
+    // Prefer fresh text from request body; fall back to stored text
+    const body          = await req.json().catch(() => ({}));
+    const textToProcess = (body.extractedText ?? note.extractedText ?? "") as string;
 
-    if (!textToSummarize.trim()) {
+    if (!textToProcess.trim()) {
       return NextResponse.json(
-        { error: "No text available to summarize. Please ensure the PDF contains readable text." },
+        { error: "No readable text found. Ensure the PDF is not a scanned image." },
         { status: 400 }
       );
     }
 
-    // Call Gemini API
-    const summary = await summarizeText(textToSummarize);
+    // ── Call Gemini ─────────────────────────────────────────────────────────
+    const summary = await summarizeText(textToProcess);
 
-    // Save summary and extracted text to the note
-    note.summary = summary;
+    // Persist results
+    note.summary      = summary;
     note.isSummarized = true;
     if (body.extractedText && !note.extractedText) {
       note.extractedText = body.extractedText;
     }
     await note.save();
 
-    return NextResponse.json({ summary }, { status: 200 });
+    return NextResponse.json({ summary });
   } catch (error) {
-    console.error("[SUMMARIZE ERROR]", error);
-    return NextResponse.json(
-      { error: "Failed to generate summary. Please try again." },
-      { status: 500 }
-    );
+    console.error("[SUMMARIZE]", error);
+    return NextResponse.json({ error: "Failed to generate summary." }, { status: 500 });
   }
 }

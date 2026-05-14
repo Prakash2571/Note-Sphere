@@ -1,12 +1,15 @@
 /**
  * app/dashboard/layout.tsx
- * Dashboard layout — wraps all /dashboard/* pages with the sidebar and header.
- * Redirects unauthenticated users to the sign-in page.
+ *
+ * Dashboard shell — wraps all /dashboard/* pages with the sidebar + header.
+ *
+ * Auth.js v5:  auth() replaces getServerSession(authOptions).
+ * Next.js 16:  middleware already handles the redirect for unauthenticated
+ *              users, but we keep a server-side check here as a safety net.
  */
 
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 
@@ -15,19 +18,18 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Server-side auth check — redirect if not signed in
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    redirect("/auth/signin");
-  }
+  // Server-side guard — middleware covers most cases, but this ensures
+  // the layout never renders without a valid session.
+  const session = await auth();
+  if (!session?.user) redirect("/auth/signin");
 
   return (
     <div className="flex h-screen bg-[#0a0f1e] overflow-hidden">
-      {/* Fixed sidebar */}
+      {/* Fixed-width sidebar */}
       <Sidebar user={session.user} />
 
-      {/* Main content area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      {/* Scrollable content area */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <DashboardHeader user={session.user} />
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>

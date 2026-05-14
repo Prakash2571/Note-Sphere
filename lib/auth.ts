@@ -1,72 +1,78 @@
 /**
  * lib/auth.ts
- * NextAuth configuration — supports credentials (email/password) and Google OAuth.
- * This file is imported by the NextAuth API route handler.
+ * Auth.js v5 (next-auth v5) configuration.
+ *
+ * Key differences from v4:
+ *  - Export `auth`, `signIn`, `signOut`, `handlers` directly from NextAuth()
+ *  - No more `authOptions` object passed around everywhere
+ *  - `auth()` replaces `getServerSession(authOptions)` in server components & API routes
+ *  - Callbacks receive typed `user` and `account` objects
  */
 
-import { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import GoogleProvider from "next-auth/providers/google";
+import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
 
-export const authOptions: NextAuthOptions = {
-  // Use JWT strategy (stateless — no database sessions needed)
-  session: {
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
-
-  // Custom pages so we can style them
+export const { auth, signIn, signOut, handlers } = NextAuth({
+  // ── Custom auth pages ────────────────────────────────────────────────────
   pages: {
     signIn: "/auth/signin",
-    error: "/auth/error",
+    error:  "/auth/error",
   },
 
-  providers: [
-    // ── Google OAuth ──────────────────────────────────────────────────────
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
+  // ── Session strategy: JWT (stateless, no DB sessions needed) ────────────
+  session: {
+    strategy: "jwt",
+    maxAge:   30 * 24 * 60 * 60, // 30 days
+  },
 
-    // ── Email / Password ──────────────────────────────────────────────────
-    CredentialsProvider({
+  // ── Providers ────────────────────────────────────────────────────────────
+  providers: [
+    // Google OAuth — Auth.js v5 automatically reads AUTH_GOOGLE_ID and
+    // AUTH_GOOGLE_SECRET from the environment when you pass Google directly.
+    Google,
+
+    // Email + password credentials
+    Credentials({
       name: "credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        email:    { label: "Email",    type: "email"    },
         password: { label: "Password", type: "password" },
       },
 
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
+        const email    = credentials?.email    as string | undefined;
+        const password = credentials?.password as string | undefined;
+
+        if (!email || !password) {
           throw new Error("Email and password are required");
         }
 
         await connectDB();
 
-        // Find user and explicitly select the password field (hidden by default)
-        const user = await User.findOne({ email: credentials.email }).select("+password");
+        // select("+password") re-includes the field hidden by default in the schema
+        const user = await User.findOne({ email: email.toLowerCase() }).select("+password");
 
         if (!user) {
           throw new Error("No account found with this email");
         }
 
         if (!user.password) {
-          throw new Error("This account uses Google login. Please sign in with Google.");
+          throw new Error("This account uses Google login — please sign in with Google.");
         }
 
-        const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
-
-        if (!isPasswordValid) {
+        const valid = await bcrypt.compare(password, user.password);
+        if (!valid) {
           throw new Error("Incorrect password");
         }
 
-        // Return the user object that gets encoded into the JWT
+        // Return value is encoded into the JWT on first sign-in
         return {
-          id: user._id.toString(),
-          name: user.name,
+          id:    user._id.toString(),
+          name:  user.name,
           email: user.email,
           image: user.image ?? null,
         };
@@ -74,20 +80,22 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
 
+  // ── Callbacks ─────────────────────────────────────────────────────────────
   callbacks: {
-    // ── signIn callback — handle Google OAuth user creation ───────────────
+    /**
+     * signIn — runs after every successful provider sign-in.
+     * Used to upsert Google users into MongoDB on first login.
+     */
     async signIn({ user, account }) {
       if (account?.provider === "google") {
         await connectDB();
 
-        const existingUser = await User.findOne({ email: user.email });
-
-        if (!existingUser) {
-          // Create a new user record for first-time Google sign-ins
+        const existing = await User.findOne({ email: user.email });
+        if (!existing) {
           await User.create({
-            name: user.name,
-            email: user.email,
-            image: user.image,
+            name:     user.name,
+            email:    user.email,
+            image:    user.image,
             provider: "google",
           });
         }
@@ -95,11 +103,14 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
 
-    // ── JWT callback — add userId to the token ────────────────────────────
+    /**
+     * jwt — runs whenever a JWT is created or updated.
+     * We store the MongoDB user id in the token so it's available server-side.
+     */
     async jwt({ token, user, account }) {
       if (user) {
-        // On first sign-in, add userId to token
         if (account?.provider === "google") {
+          // For Google users we need to look up the DB id
           await connectDB();
           const dbUser = await User.findOne({ email: user.email });
           token.userId = dbUser?._id.toString();
@@ -110,7 +121,10 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
 
-    // ── Session callback — expose userId to the client ────────────────────
+    /**
+     * session — shapes the session object the client receives.
+     * Exposes `session.user.id` so components can use it directly.
+     */
     async session({ session, token }) {
       if (token.userId) {
         session.user.id = token.userId as string;
@@ -119,5 +133,5 @@ export const authOptions: NextAuthOptions = {
     },
   },
 
-  secret: process.env.NEXTAUTH_SECRET,
-};
+  // AUTH_SECRET is automatically read from env by Auth.js v5
+});

@@ -8,8 +8,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { Search, Upload, LogOut, ChevronDown } from "lucide-react";
+import { Search, Upload, LogOut, ChevronDown, User } from "lucide-react";
 import { UploadModal } from "@/components/modals/UploadModal";
 
 interface DashboardHeaderProps {
@@ -87,6 +88,20 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
                   <p className="text-sm font-medium text-slate-300 truncate">{user.name}</p>
                   <p className="text-xs text-slate-500 truncate">{user.email}</p>
                 </div>
+
+                {/* Profile link */}
+                <Link
+                  href="/dashboard/profile"
+                  onClick={() => setIsUserMenuOpen(false)}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
+                >
+                  <User className="w-4 h-4" />
+                  My Profile
+                </Link>
+
+                <div className="border-t border-[#1e2d45]" />
+
+                {/* Sign out */}
                 <button
                   onClick={() => signOut({ callbackUrl: "/" })}
                   className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"

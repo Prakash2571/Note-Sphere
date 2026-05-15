@@ -16,6 +16,7 @@ import {
   Plus,
   Loader2,
   Circle,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -56,9 +57,10 @@ export function Sidebar({ user }: SidebarProps) {
   }, []);
 
   const navLinks = [
-    { href: "/dashboard", label: "All Notes", icon: LayoutDashboard },
-    { href: "/dashboard/labels", label: "Labels", icon: Tag },
-    { href: "/dashboard/shared", label: "Shared Notes", icon: Share2 },
+    { href: "/dashboard",         label: "All Notes",    icon: LayoutDashboard },
+    { href: "/dashboard/labels",  label: "Labels",       icon: Tag },
+    { href: "/dashboard/shared",  label: "Shared Notes", icon: Share2 },
+    { href: "/dashboard/profile", label: "Profile",      icon: User },
   ];
 
   return (
@@ -147,8 +149,11 @@ export function Sidebar({ user }: SidebarProps) {
         </div>
       </nav>
 
-      {/* User info at bottom */}
-      <div className="px-4 py-4 border-t border-[#1e2d45]">
+      {/* User info at bottom — links to /dashboard/profile */}
+      <Link
+        href="/dashboard/profile"
+        className="px-4 py-4 border-t border-[#1e2d45] hover:bg-[#1a2235] transition-colors block"
+      >
         <div className="flex items-center gap-3">
           {user.image ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -169,7 +174,7 @@ export function Sidebar({ user }: SidebarProps) {
             <p className="text-xs text-slate-500 truncate">{user.email}</p>
           </div>
         </div>
-      </div>
+      </Link>
     </aside>
   );
 }

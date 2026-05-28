@@ -257,7 +257,7 @@ export default function SignUpPage() {
                   )
                 }
                 required
-                placeholder="John Doe"
+                placeholder=""
                 className="w-full rounded-xl border border-white/10 bg-[#0f172a] py-3 pl-10 pr-4 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-blue-400/40"
               />
             </div>

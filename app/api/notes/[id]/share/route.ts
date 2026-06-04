@@ -34,7 +34,7 @@ export async function POST(_req: NextRequest, { params }: RouteParams) {
     note.isShared = true;
     await note.save();
 
-    const shareUrl = `${process.env.AUTH_URL}/shared/${note.shareToken}`;
+    const shareUrl = `${process.env.NEXTAUTH_URL}/shared/${note.shareToken}`;
     return NextResponse.json({ shareToken: note.shareToken, shareUrl });
   } catch (error) {
     console.error("[SHARE NOTE]", error);

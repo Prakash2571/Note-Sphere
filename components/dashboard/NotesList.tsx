@@ -207,8 +207,7 @@ export function NotesList() {
             <div className="mt-5 flex items-center gap-2 text-xs text-slate-500">
               <Sparkles className="h-3.5 w-3.5 text-purple-400/70" />
 
-              AI summaries powered
-              by Gemini
+              AI powered summaries 
             </div>
           </>
         )}

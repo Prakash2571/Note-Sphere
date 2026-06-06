@@ -105,7 +105,7 @@ export default function SignInPage() {
             </div>
 
             <span className="text-xl font-semibold tracking-tight text-white">
-              Note-Sphere
+              NoteSphere
             </span>
           </Link>
 

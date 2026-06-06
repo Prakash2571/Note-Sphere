@@ -163,7 +163,7 @@ export default function SharedNotePage({
             className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-500"
           >
             <BookOpen className="h-4 w-4" />
-            Go to Note-Sphere
+            Go to NoteSphere
           </Link>
         </div>
       </div>
@@ -187,7 +187,7 @@ export default function SharedNotePage({
 
               <div>
                 <p className="text-base font-semibold tracking-tight text-white">
-                  Note-Sphere
+                  NoteSphere
                 </p>
 
                 <p className="text-xs text-slate-500">
@@ -372,7 +372,7 @@ export default function SharedNotePage({
               summaries, organize notes
               with labels, and share
               documents instantly using
-              Note-Sphere.
+              NoteSphere.
             </p>
 
             <Link

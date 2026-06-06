@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Note-Sphere",
+  title: "NoteSphere",
   description:
     "AI-powered PDF workspace",
 };

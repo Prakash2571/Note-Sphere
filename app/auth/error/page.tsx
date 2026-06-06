@@ -79,7 +79,7 @@ function ErrorContent() {
           </div>
 
           <span className="text-lg font-semibold tracking-tight text-white">
-            Note-Sphere
+            NoteSphere
           </span>
         </Link>
 

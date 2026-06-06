@@ -185,7 +185,7 @@ export default function SignUpPage() {
             </div>
 
             <span className="text-xl font-semibold tracking-tight text-white">
-              Note-Sphere
+              NoteSphere
             </span>
           </Link>
 

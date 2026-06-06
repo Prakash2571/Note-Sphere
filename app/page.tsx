@@ -58,7 +58,7 @@ export default function LandingPage() {
             </div>
 
             <span className="font-bold text-lg tracking-tight">
-              Note-Sphere
+              NoteSphere
             </span>
           </Link>
 

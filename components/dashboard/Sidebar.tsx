@@ -96,7 +96,7 @@ export function Sidebar({
 
           <div>
             <p className="text-base font-semibold text-white">
-              Note-Sphere
+              NoteSphere
             </p>
           </div>
         </Link>

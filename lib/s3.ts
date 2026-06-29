@@ -50,15 +50,44 @@ export async function uploadToS3(
 /**
  * Generate a short-lived pre-signed URL for viewing a PDF.
  * URL expires after 1 hour (3600 seconds).
- * @param key - The S3 object key
+ *
+ * @param key          - The S3 object key
+ * @param downloadName - Optional. When provided, the URL forces a browser
+ *                       download (Content-Disposition: attachment) using this
+ *                       filename instead of opening the PDF inline.
  */
-export async function getPresignedUrl(key: string): Promise<string> {
+export async function getPresignedUrl(
+  key: string,
+  downloadName?: string
+): Promise<string> {
   const command = new GetObjectCommand({
     Bucket: BUCKET_NAME,
     Key: key,
+    ...(downloadName
+      ? {
+          ResponseContentDisposition: `attachment; filename="${sanitizeFilename(
+            downloadName
+          )}"`,
+          ResponseContentType: "application/pdf",
+        }
+      : {}),
   });
 
   return getSignedUrl(s3Client, command, { expiresIn: 3600 });
+}
+
+/**
+ * Make a string safe to use inside a Content-Disposition filename.
+ * Strips quotes/control chars and guarantees a `.pdf` extension.
+ */
+function sanitizeFilename(name: string): string {
+  const cleaned = name
+    .replace(/[^\w.\-\s]/g, "") // keep word chars, dots, dashes, spaces
+    .trim()
+    .replace(/\s+/g, "_")
+    .slice(0, 120) || "document";
+
+  return cleaned.toLowerCase().endsWith(".pdf") ? cleaned : `${cleaned}.pdf`;
 }
 
 /**

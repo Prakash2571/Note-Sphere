@@ -11,11 +11,13 @@ import {
   LogOut,
   Menu,
   Search,
+  Share2,
   Upload,
   User,
 } from "lucide-react";
 
 import { UploadModal } from "@/components/modals/UploadModal";
+import { MultiShareModal } from "@/components/modals/MultiShareModal";
 
 import {
   useAppDispatch,
@@ -25,6 +27,8 @@ import {
 import {
   closeUploadModal,
   openUploadModal,
+  openMultiShare,
+  closeMultiShare,
   setSearchQuery,
 } from "@/store/slices/uiSlice";
 
@@ -49,6 +53,12 @@ export function DashboardHeader({
     useAppSelector(
       (state) =>
         state.ui.uploadOpen
+    );
+
+  const isMultiShareOpen =
+    useAppSelector(
+      (state) =>
+        state.ui.multiShareOpen
     );
 
   const searchQuery =
@@ -126,6 +136,22 @@ export function DashboardHeader({
           </form>
 
           <div className="hidden flex-1 sm:block" />
+
+          {/* Share multiple PDFs */}
+          <button
+            onClick={() =>
+              dispatch(
+                openMultiShare()
+              )
+            }
+            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:bg-white/10"
+          >
+            <Share2 className="h-4 w-4" />
+
+            <span className="hidden sm:inline">
+              Share PDFs
+            </span>
+          </button>
 
           {/* Upload */}
           <button
@@ -253,6 +279,17 @@ export function DashboardHeader({
           )
         }
       />
+
+      {/* Multi-PDF share modal */}
+      {isMultiShareOpen && (
+        <MultiShareModal
+          onClose={() =>
+            dispatch(
+              closeMultiShare()
+            )
+          }
+        />
+      )}
     </>
   );
 }

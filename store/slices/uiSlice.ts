@@ -18,6 +18,7 @@ interface UiState {
   previewNoteId:     string | null;
   shareNoteId:       string | null;
   summarizeNoteId:   string | null;
+  multiShareOpen:    boolean;
 
   // Dashboard filters
   searchQuery:       string;
@@ -29,6 +30,7 @@ const initialState: UiState = {
   previewNoteId:   null,
   shareNoteId:     null,
   summarizeNoteId: null,
+  multiShareOpen:  false,
   searchQuery:     "",
   activeLabelId:   null,
 };
@@ -53,6 +55,10 @@ const uiSlice = createSlice({
     openSummarize:      (state, action: PayloadAction<string>) => { state.summarizeNoteId = action.payload; },
     closeSummarize:     (state) => { state.summarizeNoteId = null; },
 
+    // ── Multi-PDF share modal ─────────────────────────────────────────────────
+    openMultiShare:     (state) => { state.multiShareOpen = true;  },
+    closeMultiShare:    (state) => { state.multiShareOpen = false; },
+
     // ── Filters ─────────────────────────────────────────────────────────────
     setSearchQuery:     (state, action: PayloadAction<string>)         => { state.searchQuery   = action.payload; },
     setActiveLabel:     (state, action: PayloadAction<string | null>)  => { state.activeLabelId = action.payload; },
@@ -65,6 +71,7 @@ export const {
   openPreview,        closePreview,
   openShare,          closeShare,
   openSummarize,      closeSummarize,
+  openMultiShare,     closeMultiShare,
   setSearchQuery,     setActiveLabel,    clearFilters,
 } = uiSlice.actions;
 

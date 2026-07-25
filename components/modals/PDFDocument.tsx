@@ -15,6 +15,12 @@ import {
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 
+import { AnnotationOverlay } from "./AnnotationOverlay";
+import type { NormPoint, NormRect } from "@/lib/annotations/coordinates";
+import type { PaletteColor } from "@/lib/annotations/validation";
+import type { Tool } from "@/lib/annotations/colorState";
+import type { AnnotationDTO } from "@/lib/annotations/serialize";
+
 /**
  * Production-safe worker setup
  */
@@ -23,6 +29,11 @@ pdfjs.GlobalWorkerOptions.workerSrc =
     "pdfjs-dist/build/pdf.worker.min.mjs",
     import.meta.url
   ).toString();
+
+interface PageDimensions {
+  unscaledWidth: number;
+  unscaledHeight: number;
+}
 
 interface PDFDocumentProps {
   pdfUrl: string;
@@ -40,6 +51,17 @@ interface PDFDocumentProps {
   onLoadError: (
     error: Error
   ) => void;
+
+  /* Annotation integration (all optional so existing callers keep working) */
+  pageAnnotations?: AnnotationDTO[];
+  tool?: Tool;
+  activeColor?: PaletteColor;
+  strokeWidth?: number;
+  onPageDimensions?: (dims: PageDimensions) => void;
+  onCreateHighlight?: (rects: NormRect[]) => void;
+  onCreateScribble?: (points: NormPoint[]) => void;
+  unscaledWidth?: number;
+  unscaledHeight?: number;
 }
 
 export function PDFDocument({
@@ -48,6 +70,15 @@ export function PDFDocument({
   scale,
   onLoadSuccess,
   onLoadError,
+  pageAnnotations = [],
+  tool = "none",
+  activeColor,
+  strokeWidth = 3,
+  onPageDimensions,
+  onCreateHighlight,
+  onCreateScribble,
+  unscaledWidth,
+  unscaledHeight,
 }: PDFDocumentProps) {
   /**
    * Prevent unnecessary rerenders
@@ -58,6 +89,17 @@ export function PDFDocument({
     }),
     [pdfUrl]
   );
+
+  const annotationsEnabled =
+    onCreateHighlight !== undefined &&
+    onCreateScribble !== undefined &&
+    activeColor !== undefined;
+
+  const hasDims =
+    typeof unscaledWidth === "number" &&
+    typeof unscaledHeight === "number" &&
+    unscaledWidth > 0 &&
+    unscaledHeight > 0;
 
   return (
     <Document
@@ -80,25 +122,56 @@ export function PDFDocument({
       }
       className="flex justify-center"
     >
-      <Page
-        pageNumber={currentPage}
-        scale={scale}
-        renderMode="canvas"
-        devicePixelRatio={
-          typeof window !==
-          "undefined"
-            ? Math.max(
-                window.devicePixelRatio,
-                2
-              )
-            : 2
+      <div
+        className="relative"
+        style={
+          tool === "scribble"
+            ? { userSelect: "none", WebkitUserSelect: "none" }
+            : undefined
         }
-        renderTextLayer={true}
-        renderAnnotationLayer={
-          true
-        }
-        className="overflow-hidden rounded-xl shadow-2xl"
-      />
+      >
+        <Page
+          pageNumber={currentPage}
+          scale={scale}
+          renderMode="canvas"
+          devicePixelRatio={
+            typeof window !==
+            "undefined"
+              ? Math.max(
+                  window.devicePixelRatio,
+                  2
+                )
+              : 2
+          }
+          renderTextLayer={true}
+          renderAnnotationLayer={
+            true
+          }
+          onRenderSuccess={(page) => {
+            const viewport = page.getViewport({ scale: 1 });
+            onPageDimensions?.({
+              unscaledWidth: viewport.width,
+              unscaledHeight: viewport.height,
+            });
+          }}
+          className="overflow-hidden rounded-xl shadow-2xl"
+        />
+
+        {annotationsEnabled && hasDims && (
+          <AnnotationOverlay
+            annotations={pageAnnotations}
+            pageNumber={currentPage}
+            scale={scale}
+            unscaledWidth={unscaledWidth as number}
+            unscaledHeight={unscaledHeight as number}
+            tool={tool}
+            activeColor={activeColor as PaletteColor}
+            strokeWidth={strokeWidth}
+            onCreateHighlight={onCreateHighlight as (r: NormRect[]) => void}
+            onCreateScribble={onCreateScribble as (p: NormPoint[]) => void}
+          />
+        )}
+      </div>
     </Document>
   );
 }

@@ -14,6 +14,7 @@ import { connectDB } from "@/lib/mongodb";
 import { getPresignedUrl, deleteFromS3 } from "@/lib/s3";
 import Note from "@/models/Note";
 import Label from "@/models/Label";
+import Annotation from "@/models/Annotation";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -103,6 +104,10 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     }
 
     await Note.findByIdAndDelete(id);
+
+    // Clean up any overlay annotations belonging to this note + owner.
+    await Annotation.deleteMany({ noteId: id, userId: session.user.id });
+
     return NextResponse.json({ message: "Note deleted successfully" });
   } catch (error) {
     console.error("[DELETE NOTE]", error);

@@ -18,6 +18,18 @@ import {
   ZoomOut,
 } from "lucide-react";
 
+import { AnnotationToolbar } from "./AnnotationToolbar";
+import { useAnnotations } from "./useAnnotations";
+import {
+  DEFAULT_COLOR_STATE,
+  selectColor,
+  activeColorFor,
+  type ColorState,
+  type Tool,
+} from "@/lib/annotations/colorState";
+import type { PaletteColor } from "@/lib/annotations/validation";
+import type { NormPoint, NormRect } from "@/lib/annotations/coordinates";
+
 const PDFDocument = dynamic(
   () =>
     import("./PDFDocument").then(
@@ -64,6 +76,24 @@ export function PDFPreviewModal({
 
   const [error, setError] =
     useState("");
+
+  /* Annotation state */
+  const [tool, setTool] = useState<Tool>("none");
+
+  const [colorState, setColorState] =
+    useState<ColorState>(DEFAULT_COLOR_STATE);
+
+  const [strokeWidth, setStrokeWidth] =
+    useState(3);
+
+  const [pageDims, setPageDims] = useState<{
+    unscaledWidth: number;
+    unscaledHeight: number;
+  } | null>(null);
+
+  const annotations = useAnnotations(note._id);
+
+  const activeColor: PaletteColor = activeColorFor(colorState, tool);
 
   /* Fetch signed URL */
   useEffect(() => {
@@ -128,6 +158,33 @@ export function PDFPreviewModal({
       Math.max(prev - 0.2, 0.6)
     );
   }
+
+  /* Annotation handlers */
+  function handleColorChange(
+    target: "highlight" | "scribble",
+    color: PaletteColor
+  ) {
+    setColorState((prev) => selectColor(prev, { tool: target, color }));
+  }
+
+  function handleJumpToPage(page: number) {
+    setCurrentPage(page);
+  }
+
+  function handleCreateHighlight(rects: NormRect[]) {
+    annotations.createHighlight(currentPage, rects, colorState.highlight);
+  }
+
+  function handleCreateScribble(points: NormPoint[]) {
+    annotations.createScribble(
+      currentPage,
+      points,
+      colorState.scribble,
+      strokeWidth
+    );
+  }
+
+  const pageAnnotations = annotations.byPage(currentPage);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[#0b1120]">
@@ -216,6 +273,30 @@ export function PDFPreviewModal({
         </div>
       </div>
 
+      {/* Annotation toolbar */}
+      {pdfUrl && !error && (
+        <div className="flex items-center justify-between gap-3 overflow-x-auto border-b border-white/10 bg-[#0f172a]/60 px-3 py-2 sm:px-5">
+          <AnnotationToolbar
+            tool={tool}
+            onToolChange={setTool}
+            highlightColor={colorState.highlight}
+            scribbleColor={colorState.scribble}
+            onColorChange={handleColorChange}
+            strokeWidth={strokeWidth}
+            onStrokeWidthChange={setStrokeWidth}
+            onRevert={annotations.revertAll}
+            totalPages={numPages}
+            onJumpToPage={handleJumpToPage}
+          />
+
+          {annotations.error && (
+            <span role="alert" className="text-xs text-red-400">
+              {annotations.error}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Viewer */}
       <div className="flex-1 overflow-auto bg-[#0b1120] p-3 sm:p-6">
         <div className="flex justify-center">
@@ -252,6 +333,15 @@ export function PDFPreviewModal({
               onLoadError={
                 onDocumentLoadError
               }
+              pageAnnotations={pageAnnotations}
+              tool={tool}
+              activeColor={activeColor}
+              strokeWidth={strokeWidth}
+              onPageDimensions={setPageDims}
+              onCreateHighlight={handleCreateHighlight}
+              onCreateScribble={handleCreateScribble}
+              unscaledWidth={pageDims?.unscaledWidth}
+              unscaledHeight={pageDims?.unscaledHeight}
             />
           ) : null}
         </div>

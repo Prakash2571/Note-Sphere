@@ -1,0 +1,409 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1. Set up test tooling and configuration": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993284466
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993570552
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993616831
+      }
+    ],
+    "2.1 Implement pure coordinate conversion functions": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993284469
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993297679
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993458533
+      }
+    ],
+    "3.1 Implement palette and input validation": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993284471
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993298706
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993459565
+      }
+    ],
+    "4.1 Implement serialize/deserialize": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993284481
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993465527
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993534749
+      }
+    ],
+    "5.1 Implement `parseJumpInput`": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993284484
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993301149
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993460585
+      }
+    ],
+    "6.1 Implement color-state logic": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993284486
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993301367
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993461278
+      }
+    ],
+    "7. Checkpoint - Ensure all pure-module tests pass": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993284488
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993625738
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993628156
+      }
+    ],
+    "8.1 Create the Annotation schema": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993284490
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993465866
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993535307
+      }
+    ],
+    "9.1 Implement GET, POST, and DELETE-all handlers": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993284492
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993648305
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993692515
+      }
+    ],
+    "10.1 Implement DELETE-one handler": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993284494
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993649342
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993693494
+      }
+    ],
+    "11.1 Extend `app/api/notes/[id]/route.ts` DELETE": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993284495
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993650253
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993694296
+      }
+    ],
+    "12. Checkpoint - Ensure all server tests pass": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993284497
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993696782
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993700874
+      }
+    ],
+    "13.1 Implement annotation state and network calls": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993284500
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993727330
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993935615
+      }
+    ],
+    "14.1 Implement the SVG overlay and capture logic": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993284502
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993728160
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993936645
+      }
+    ],
+    "15.1 Implement the toolbar UI": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993284504
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993729173
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993937879
+      }
+    ],
+    "16.1 Wire `onRenderSuccess` and mount the overlay": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993284506
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993731462
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993938912
+      }
+    ],
+    "17.1 Wire modal state and mount the toolbar": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993284508
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993731670
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993939733
+      }
+    ],
+    "18. Final checkpoint - Ensure all tests pass": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993284510
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993942219
+      },
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993945288
+      }
+    ],
+    "2. Implement the coordinate module (`lib/annotations/coordinates.ts`)": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993458535
+      }
+    ],
+    "3. Implement the validation module (`lib/annotations/validation.ts`)": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993459567
+      }
+    ],
+    "5. Implement the jump-to-page parser (`lib/annotations/pageInput.ts`)": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993460588
+      }
+    ],
+    "6. Implement the per-tool color state reducer (`lib/annotations/colorState.ts`)": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993461283
+      }
+    ],
+    "4. Implement the serialization module (`lib/annotations/serialize.ts`)": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993534751
+      }
+    ],
+    "8. Implement the Mongoose model (`models/Annotation.ts`)": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993535309
+      }
+    ],
+    "9. Implement the annotations list route (`app/api/notes/[id]/annotations/route.ts`)": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993692517
+      }
+    ],
+    "10. Implement the single-annotation delete route (`app/api/notes/[id]/annotations/[annotationId]/route.ts`)": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993693496
+      }
+    ],
+    "11. Add annotation cleanup to the existing note delete route": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993694303
+      }
+    ],
+    "13. Implement the `useAnnotations` hook (`components/modals/useAnnotations.ts`)": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993935617
+      }
+    ],
+    "14. Implement the `AnnotationOverlay` component (`components/modals/AnnotationOverlay.tsx`)": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993936648
+      }
+    ],
+    "15. Implement the `AnnotationToolbar` component (`components/modals/AnnotationToolbar.tsx`)": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993937881
+      }
+    ],
+    "16. Integrate the overlay into `PDFDocument.tsx`": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993938914
+      }
+    ],
+    "17. Integrate the toolbar and state into `PDFPreviewModal.tsx`": [
+      {
+        "executionId": "e56bfc88-d9b5-48fb-a623-9dec68666666",
+        "chatSessionId": "8acf272e-af16-44dd-a9ed-73d814029ece",
+        "timestamp": 1784993939740
+      }
+    ]
+  }
+}

@@ -60,6 +60,7 @@ interface PDFDocumentProps {
   onPageDimensions?: (dims: PageDimensions) => void;
   onCreateHighlight?: (rects: NormRect[]) => void;
   onCreateScribble?: (points: NormPoint[]) => void;
+  onErase?: (annotationId: string) => void;
   unscaledWidth?: number;
   unscaledHeight?: number;
 }
@@ -77,6 +78,7 @@ export function PDFDocument({
   onPageDimensions,
   onCreateHighlight,
   onCreateScribble,
+  onErase,
   unscaledWidth,
   unscaledHeight,
 }: PDFDocumentProps) {
@@ -125,8 +127,12 @@ export function PDFDocument({
       <div
         className="relative"
         style={
-          tool === "scribble"
-            ? { userSelect: "none", WebkitUserSelect: "none" }
+          tool !== "none"
+            ? {
+                userSelect: "none",
+                WebkitUserSelect: "none",
+                touchAction: "none",
+              }
             : undefined
         }
       >
@@ -169,6 +175,7 @@ export function PDFDocument({
             strokeWidth={strokeWidth}
             onCreateHighlight={onCreateHighlight as (r: NormRect[]) => void}
             onCreateScribble={onCreateScribble as (p: NormPoint[]) => void}
+            onErase={onErase}
           />
         )}
       </div>

@@ -17,9 +17,10 @@ export type ColorTool = "highlight" | "scribble";
 
 /**
  * Full set of viewer tools. `"none"` is the non-drawing/selection mode used by
- * the viewer chrome; it carries no color of its own.
+ * the viewer chrome; `"eraser"` removes annotations. Neither carries a color of
+ * its own.
  */
-export type Tool = "none" | ColorTool;
+export type Tool = "none" | "highlight" | "scribble" | "eraser";
 
 export interface ColorState {
   highlight: PaletteColor;
@@ -79,7 +80,8 @@ export function activeColor(state: ColorState, tool: ColorTool): PaletteColor {
 
 /**
  * Resolve the active color for any viewer tool. The non-drawing `"none"` mode
- * has no color of its own, so it falls back to the highlight tool's color.
+ * and the `"eraser"` tool have no color of their own, so they fall back to the
+ * highlight tool's color.
  */
 export function activeColorFor(state: ColorState, tool: Tool): PaletteColor {
   if (tool === "scribble") return state.scribble;

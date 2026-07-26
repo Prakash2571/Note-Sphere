@@ -340,6 +340,7 @@ export function PDFPreviewModal({
               onPageDimensions={setPageDims}
               onCreateHighlight={handleCreateHighlight}
               onCreateScribble={handleCreateScribble}
+              onErase={annotations.deleteOne}
               unscaledWidth={pageDims?.unscaledWidth}
               unscaledHeight={pageDims?.unscaledHeight}
             />

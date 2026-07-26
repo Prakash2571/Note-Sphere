@@ -183,6 +183,64 @@ Testing follows the design's dual approach: one fast-check property test per cor
 - [x] 18. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
+- [ ] 19. Implement the geometry hit-test module (`lib/annotations/hitTest.ts`)
+  - [ ] 19.1 Implement pure geometry helpers
+    - Implement `rectsIntersect`, `intersectRect` (zero-area result when disjoint), `pointInRect`, `pointNearSegment` (distance point→segment clamped to the segment endpoints), and `annotationHitByPoint` (highlight: point in any rect; scribble: point within `strokeWidth / 2` normalized + epsilon of any consecutive segment)
+    - Operate on `NormRect`/`NormPoint` from `coordinates.ts` and `AnnotationDTO` from `serialize.ts`; keep the module pure with no I/O
+    - _Requirements: 8.3, 9.1, 9.3, 9.4_
+
+  - [ ]* 19.2 Property test for hit-testing correctness
+    - **Property 11: Hit-testing correctness**
+    - **Validates: Requirements 9.1, 9.3, 9.4**
+    - Generate arbitrary highlight/scribble annotations plus arbitrary pointer points (inside/outside rects, near/far from segments); assert `annotationHitByPoint` returns `true` iff the point is in a rect (highlight) or within tolerance of a segment (scribble)
+  - [ ]* 19.3 Property test for rectangle intersection correctness
+    - **Property 12: Rectangle intersection correctness**
+    - **Validates: Requirements 8.3**
+    - Generate arbitrary overlapping and disjoint `NormRect` pairs plus probe points; assert `intersectRect` yields the geometric intersection when overlapping and a zero-area rect when disjoint, and that a point lies in the result iff it lies in both inputs
+
+- [ ] 20. Add the eraser to the Tool model (`lib/annotations/colorState.ts`)
+  - [ ] 20.1 Extend the `Tool` union with `"eraser"`
+    - Change `Tool` to `"none" | "highlight" | "scribble" | "eraser"`; keep `ColorTool` and `activeColorFor` working (eraser falls back to the highlight color, which is unused by the eraser)
+    - _Requirements: 9.5_
+
+- [ ] 21. Fix touch/pointer input and pointer-based highlighting in `AnnotationOverlay.tsx`
+  - [ ] 21.1 Unify interactive-tool pointer handling
+    - Treat any `tool !== "none"` as interactive: set `touch-action: none` and `pointer-events: auto`; call `e.preventDefault()` on `pointerdown` for all interactive tools; use `setPointerCapture` to bind the pointer stream to the overlay
+    - _Requirements: 8.1, 8.2, 8.4_
+
+  - [ ] 21.2 Replace highlight capture with a pointer drag
+    - Track a drag rectangle with a faint preview `<rect>`; on `pointerup` build the drag rect from the start/end points; query `".react-pdf__Page__textContent span"`, intersect each span with the drag rect (`rectsIntersect`/`intersectRect`), and produce `NormRect`s; fall back to the dragged region when no text intersects; treat a zero-area drag as a no-op
+    - _Requirements: 8.3, 8.5, 1.1_
+
+  - [ ] 21.3 Add eraser hit-testing in the overlay
+    - Add an `onErase?(annotationId)` prop; when `tool === "eraser"`, on `pointerdown`/`pointermove` convert the pointer position to a `NormPoint` and call `annotationHitByPoint` against the current page's annotations; call `onErase(_id)` for real (non-`temp-…`) ids; dedupe with a `Set` during the drag; no-op when nothing is hit
+    - _Requirements: 9.1, 9.2, 9.3, 9.4_
+
+  - [ ]* 21.4 Component tests for touch/pointer + eraser overlay behavior
+    - Dispatch `pointerdown`/`pointermove`/`pointerup`; assert `touch-action: none` + `pointer-events: auto` while a tool is active and `auto`/`none` while `tool === "none"`; assert `preventDefault`/`setPointerCapture` fire; assert span-intersection highlighting, dragged-region fallback, zero-area no-op, and eraser hit behavior
+    - _Requirements: 8.1, 8.2, 8.4, 8.5, 9.1, 9.3, 9.4_
+
+- [ ] 22. Add the eraser button to `AnnotationToolbar.tsx`
+  - [ ] 22.1 Add an eraser tool button
+    - Add an eraser button using the `lucide-react` `Eraser` icon with `aria-pressed`, wired to `onToolChange("eraser")` following the existing tool-button pattern
+    - _Requirements: 9.1, 9.5_
+
+- [ ] 23. Wire touch fix + eraser through `PDFDocument.tsx` and `PDFPreviewModal.tsx`
+  - [ ] 23.1 Thread the touch fix and eraser prop through `PDFDocument`
+    - Apply `userSelect: none` + `touchAction: none` on the wrapper for any interactive tool (not just scribble); forward the new `onErase` prop to the overlay
+    - _Requirements: 8.1, 8.2_
+
+  - [ ] 23.2 Wire the eraser handler in `PDFPreviewModal`
+    - Pass `onErase={annotations.deleteOne}` down to the overlay via `PDFDocument`
+    - _Requirements: 9.1, 9.2, 9.6_
+
+  - [ ]* 23.3 Integration test for eraser removal and touch scrolling
+    - Assert the eraser removes a single annotation and that a touch drag does not scroll the page while a tool is active
+    - _Requirements: 8.1, 9.1, 9.2_
+
+- [ ] 24. Final checkpoint - verify touch fix and eraser
+  - Ensure the feature builds/type-checks; verify on a touch viewport if possible.
+
 ## Notes
 
 - Tasks marked with `*` are optional test sub-tasks and can be skipped for a faster MVP; core implementation sub-tasks are never optional.
@@ -205,7 +263,14 @@ Testing follows the design's dual approach: one fast-check property test per cor
     { "id": 6, "tasks": ["14.2", "14.3", "15.1"] },
     { "id": 7, "tasks": ["15.2", "16.1"] },
     { "id": 8, "tasks": ["17.1"] },
-    { "id": 9, "tasks": ["17.2"] }
+    { "id": 9, "tasks": ["17.2"] },
+    { "id": 10, "tasks": ["19.1", "20.1"] },
+    { "id": 11, "tasks": ["19.2", "19.3", "21.1", "22.1"] },
+    { "id": 12, "tasks": ["21.2"] },
+    { "id": 13, "tasks": ["21.3"] },
+    { "id": 14, "tasks": ["21.4", "23.1"] },
+    { "id": 15, "tasks": ["23.2"] },
+    { "id": 16, "tasks": ["23.3"] }
   ]
 }
 ```

@@ -424,6 +424,18 @@ The following properties were derived from the acceptance-criteria prework. Redu
 
 **Validates: Requirements 6.2**
 
+### Property 11: Hit-testing correctness
+
+*For any* `Annotation_Record` and any pointer `NormPoint`, `annotationHitByPoint` SHALL return `true` if and only if either the annotation is a highlight and the point lies inside at least one of its `rects` (point-in-rect), or the annotation is a scribble and the point lies within the stroke tolerance (`strokeWidth / 2` in normalized units plus a small fixed tolerance) of at least one of its consecutive stroke segments (point-near-segment) — and `false` otherwise.
+
+**Validates: Requirements 9.1, 9.3, 9.4**
+
+### Property 12: Rectangle intersection correctness
+
+*For any* two `NormRect` values, `intersectRect` SHALL return the geometric intersection rectangle when the two rectangles overlap and an empty (zero-area) result when they are disjoint; equivalently, a point lies in the returned intersection if and only if it lies in both input rectangles.
+
+**Validates: Requirements 8.3**
+
 ## Error Handling
 
 Error handling follows the existing route-handler convention (`try/catch`, `console.error("[TAG]", error)`, `NextResponse.json({ error }, { status })`).
@@ -451,6 +463,106 @@ Error handling follows the existing route-handler convention (`try/catch`, `cons
 ### Data integrity
 
 `validation.ts` runs before persistence, and the Mongoose schema (`min/max` on coordinates, `enum: PALETTE` on color, integer validator on `pageNumber`) provides a defense-in-depth second layer. The `Source_PDF` in S3 is never written by any annotation handler (Req 3.3) — the module imports no S3 write helper.
+
+## Mobile Input & Eraser (Requirements 8-9)
+
+This section extends the existing Viewer with reliable touch/stylus input (Requirement 8) and an `Eraser_Tool` for removing individual annotations (Requirement 9). Both build directly on the components described above rather than replacing them; the additions are grounded in the current code in `components/modals/*` and `lib/annotations/colorState.ts`.
+
+### Touch and pointer input (Requirement 8)
+
+**Root cause of the current mobile failure.** Two properties of the existing implementation break touch:
+
+1. Highlight capture in `AnnotationOverlay.tsx` relies on **native text selection** (`window.getSelection()` triggered by `onMouseUp`). On touch devices a finger drag pans/zooms the page instead of selecting text, so no selection is produced and no highlight is created.
+2. The overlay only sets `touch-action: none` **while the scribble tool is active** (`touchAction: tool === "scribble" ? "none" : "auto"`), and `PDFDocument.tsx` only sets `user-select: none` on the wrapper for scribble. During highlight (and the new eraser) the browser therefore keeps its default pan/pinch gestures, so drags never reach the overlay as usable input.
+
+**Fix — unify input on Pointer Events for every interactive tool.** The design generalizes the notion of an *interactive tool* to `highlight | scribble | eraser` (all tools except `none`) and applies pointer-capture behavior uniformly (Req 8.1, 8.4):
+
+- In `AnnotationOverlay`, compute `const interactive = tool !== "none";` and set both `touch-action: none` and `pointer-events: auto` whenever `interactive` is true (previously scribble-only). Call `e.preventDefault()` in the `pointerdown` handler for **all** interactive tools, and call `svgRef.current?.setPointerCapture(e.pointerId)` so the active pointer stream stays bound to the overlay for the duration of the gesture. While `tool === "none"`, the overlay keeps `pointer-events: none` and `touch-action: auto` so normal scrolling and pinch-zoom continue to work (Req 8.2).
+- In `PDFDocument`, apply the wrapper `div`'s `userSelect: "none"` / `WebkitUserSelect: "none"` **and** `touchAction: "none"` whenever any interactive tool is active (currently gated on `tool === "scribble"` only), so the underlying text layer never hijacks a drawing/highlight/erase drag.
+
+**Highlight via a pointer drag (replaces selection-based capture).** Highlight capture is reworked to use `Pointer_Input` so it behaves identically for mouse, touch, and stylus (Req 8.3, 8.4):
+
+1. On `pointerdown` (tool `highlight`), record the start pixel point relative to the page box (`svgRef.current.getBoundingClientRect()`), mark drawing active, and capture the pointer.
+2. On `pointermove`, track the current pixel point and render a faint **preview selection rectangle** (a low-opacity `<rect>`) spanning the start and current points, giving live feedback.
+3. On `pointerup`, build the drag rectangle in page-pixel coordinates as the `min`/`max` of the start and end points (`x = min(x0,x1)`, `y = min(y0,y1)`, `w = |x1-x0|`, `h = |y1-y0|`).
+   - **Zero-area drag ⇒ no-op** (Req 8.5): if `w === 0 || h === 0`, discard and leave annotations unchanged.
+   - **Text-aware highlighting:** query the react-pdf text layer spans via
+     `svgRef.current?.parentElement?.querySelectorAll(".react-pdf__Page__textContent span")`.
+     For each span, compute its client rect relative to the page box and test intersection with the drag rectangle using `rectsIntersect` from the new `hitTest` module. For every intersecting span, convert its (clipped) client rect to a `NormRect` via `toNormalizedRect`.
+   - If **at least one** span intersects, create the highlight from the collected span rects (covering the selectable text within the dragged region).
+   - If **no** span intersects (e.g., an image-only region), fall back to a single `NormRect` equal to the dragged region itself (Req 8.3).
+   - Call `onCreateHighlight(rects)` only when `rects.length > 0`.
+
+The scribble path is unchanged in behavior but shares the same `preventDefault` + `setPointerCapture` treatment already present, now reached through the unified interactive-tool guard.
+
+### Geometry helper — `lib/annotations/hitTest.ts` (pure)
+
+A new pure module centralizes the geometry used by both text-intersection highlighting and the eraser. It operates entirely on `Normalized_Coordinates` / pixel-space `NormRect`/`NormPoint` shapes (the same numeric shapes as `coordinates.ts`) and performs no I/O, which makes it directly property-testable (Properties 11 and 12).
+
+```ts
+import type { NormPoint, NormRect } from "./coordinates";
+import type { AnnotationDTO } from "./serialize";
+
+// True when two rectangles overlap (touching edges count as intersecting only
+// when the overlap has positive area).
+export function rectsIntersect(a: NormRect, b: NormRect): boolean;
+
+// Geometric intersection of two rectangles; returns a zero-area rect
+// (w === 0 || h === 0) when they are disjoint (Property 12).
+export function intersectRect(a: NormRect, b: NormRect): NormRect;
+
+// True when point p lies within rect r (inclusive of edges).
+export function pointInRect(p: NormPoint, r: NormRect): boolean;
+
+// True when point p lies within `tolerance` of segment a→b (distance from a
+// point to a line segment, clamped to the segment endpoints).
+export function pointNearSegment(
+  p: NormPoint,
+  a: NormPoint,
+  b: NormPoint,
+  tolerance: number
+): boolean;
+
+// Tool-level hit test used by the eraser:
+//  - highlight: p inside ANY of the annotation's rects
+//  - scribble:  p within tolerance of ANY consecutive stroke segment,
+//               where tolerance = (strokeWidth / 2) normalized + a small epsilon
+export function annotationHitByPoint(
+  annotation: AnnotationDTO,
+  point: NormPoint,
+  tolerance: number
+): boolean;
+```
+
+### Eraser tool (Requirement 9)
+
+**Tool model.** Extend the `Tool` union in `lib/annotations/colorState.ts` to include the eraser:
+
+```ts
+export type Tool = "none" | "highlight" | "scribble" | "eraser";
+```
+
+`ColorTool` (the color-bearing tools) is unchanged, so `activeColorFor` still resolves `eraser` through its existing fallback to the highlight color. That color is never used by the eraser, satisfying the requirement that the palette does not affect eraser behavior (Req 9.5).
+
+**Toolbar.** `AnnotationToolbar` gains an eraser button alongside the existing none/highlight/scribble buttons, using the `lucide-react` `Eraser` icon, wired to `onToolChange("eraser")` with the same `aria-pressed` pattern as the other tool buttons.
+
+**Overlay behavior.** `AnnotationOverlay` gains an optional prop:
+
+```ts
+onErase?: (annotationId: string) => void;
+```
+
+When `tool === "eraser"`:
+- On `pointerdown` and on each `pointermove` (while the pointer is captured), convert the pointer position to a `NormPoint` (reusing the existing `pointFromEvent` helper) and hit-test every annotation on the current page via `annotationHitByPoint`:
+  - highlights → `pointInRect` against each rect;
+  - scribbles → `pointNearSegment` against each consecutive segment, with tolerance `strokeWidth / 2` converted to normalized units plus a small epsilon (Req 9.1, 9.3).
+- For each hit annotation that has a **real** server `_id` (not a `temp-…` optimistic id), call `onErase(_id)`.
+- Maintain a `Set<string>` of ids already erased during the current drag and skip ids already in the set, so a single drag never issues two deletes for the same annotation.
+- When no annotation is hit at the pointer location, take no action (Req 9.4).
+
+**Wiring.** `PDFPreviewModal` passes `onErase={annotations.deleteOne}` down through `PDFDocument` to the overlay. The existing `deleteOne(annotationId)` in `useAnnotations` already performs optimistic removal with restore-on-failure, which directly satisfies immediate visual removal (Req 9.2) and error recovery (Req 9.6). `PDFDocument` forwards the new `onErase` prop and keeps the overlay enabled for the eraser tool — `annotationsEnabled` is already `true` because the create handlers and `activeColor` are always supplied by the modal, so no gating change is required beyond threading the prop.
+
+Because the eraser deletes only the specific annotations whose ids are returned by the hit test, all other records remain untouched (Req 9.3).
 
 ## Testing Strategy
 
@@ -484,6 +596,8 @@ Each test is tagged with a comment in the format:
 | 8 — Jump input classification | `parseJumpInput` | Arbitrary strings + arbitrary integers in/out of range, plus totalPages |
 | 9 — Per-page filtering | `byPage` selector | Arbitrary annotation sets across arbitrary page numbers |
 | 10 — Per-tool color independence | color-state reducer/hook logic | Arbitrary sequences of `(tool, color)` selections |
+| 11 — Hit-testing correctness | `hitTest.ts` `annotationHitByPoint` (`pointInRect` / `pointNearSegment`) | Arbitrary highlight/scribble annotations + arbitrary pointer points (incl. points inside/outside rects and near/far from segments) |
+| 12 — Rectangle intersection correctness | `hitTest.ts` `intersectRect` / `rectsIntersect` | Arbitrary pairs of `NormRect` (overlapping and disjoint), plus probe points to verify the "in both iff in intersection" relation |
 
 ### Unit / component / integration (example & edge tests)
 
@@ -494,8 +608,11 @@ Each test is tagged with a comment in the format:
 - **Revert flow (3.2, 3.4, 3.6)**: confirm opens dialog, confirm clears overlay, cancel is a no-op.
 - **Drawing suppresses text selection (4.4)**: assert `user-select: none` / no selection while in scribble mode.
 - **S3 untouched (3.3)**: assert annotation handlers never import/call `uploadToS3`/`deleteFromS3` (integration/inspection).
-- **Latency-sensitive criteria (1.2, 2.1, 3.2, 5.1 timing)**: covered functionally by the above; timing is validated by lightweight integration smoke checks rather than property tests.
+- **Touch/pointer capture (8.1, 8.2, 8.4)**: component tests that dispatch `pointerdown`/`pointermove`/`pointerup` on the overlay and assert `touch-action: none` + `pointer-events: auto` while an interactive tool is active, `touch-action: auto` + `pointer-events: none` while `tool === "none"`, and that `preventDefault`/`setPointerCapture` are invoked for pointer-driven gestures.
+- **Highlight drag over text vs. non-text (8.3), zero-area no-op (8.5)**: component tests with a mocked react-pdf text layer — assert span-intersection produces per-span rects, an empty region falls back to a single dragged-region rect, and a zero-area drag creates nothing.
+- **Eraser behavior (9.1–9.6)**: component tests that drag the eraser over a highlight and a scribble and assert `onErase` (→ `deleteOne`) is called once per hit annotation with its real `_id`, that a drag over empty space is a no-op (9.4), that the same id is not deleted twice within one drag, that the palette selection does not change eraser behavior (9.5), and (via a mocked failing `DELETE`) that the annotation is restored on failure (9.6).
+- **Latency-sensitive criteria (1.2, 2.1, 3.2, 5.1, 9.2 timing)**: covered functionally by the above; timing is validated by lightweight integration smoke checks rather than property tests.
 
 ### Review and Approval
 
-The `requirements.md` for this spec exists and is approved. This design addresses all seven requirements and their acceptance criteria. If gaps are identified during review, we can return to requirements clarification before proceeding to the task list.
+The `requirements.md` for this spec exists and is approved. This design addresses all nine requirements and their acceptance criteria, including touch/mobile pointer input (Requirement 8) and the eraser tool (Requirement 9). If gaps are identified during review, we can return to requirements clarification before proceeding to the task list.

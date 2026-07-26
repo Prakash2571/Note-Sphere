@@ -12,6 +12,7 @@ import { useState } from "react";
 import {
   Highlighter,
   Pencil,
+  Eraser,
   MousePointer2,
   RotateCcw,
 } from "lucide-react";
@@ -130,6 +131,19 @@ export function AnnotationToolbar({
           }`}
         >
           <Pencil className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          aria-label="Eraser tool"
+          aria-pressed={tool === "eraser"}
+          onClick={() => onToolChange("eraser")}
+          className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
+            tool === "eraser"
+              ? "bg-blue-500 text-white"
+              : "text-slate-400 hover:bg-white/5 hover:text-white"
+          }`}
+        >
+          <Eraser className="h-4 w-4" />
         </button>
       </div>
 

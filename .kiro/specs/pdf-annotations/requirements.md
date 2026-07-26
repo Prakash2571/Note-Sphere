@@ -21,6 +21,8 @@ The feature is grounded in the existing stack: Next.js 16 route handlers, Auth.j
 - **Viewer**: The `PDFPreviewModal` component and its child `PDFDocument` component.
 - **Owner**: The authenticated user whose `userId` matches the note's `userId`.
 - **System**: The Note-Sphere application as a whole, including the Viewer, Annotation_Service, and Annotation_Overlay.
+- **Eraser_Tool**: An annotation tool that deletes individual annotations (a single highlight or scribble) that the Owner touches or drags over, without affecting other annotations.
+- **Pointer_Input**: Unified mouse, touch, and stylus input handled via the browser Pointer Events API.
 
 ## Requirements
 
@@ -114,3 +116,29 @@ The feature is grounded in the existing stack: Next.js 16 route handlers, Auth.j
 4. IF an annotation create request specifies a page number less than 1 or greater than the note's total page count, THEN THE Annotation_Service SHALL reject the request with a validation error indicating the invalid page number and SHALL NOT persist any Annotation_Record.
 5. IF an annotation create request contains a coordinate value that is absent or not a number, THEN THE Annotation_Service SHALL reject the request with a validation error indicating the invalid coordinate and SHALL NOT persist any Annotation_Record.
 6. IF an annotation create request specifies a page number that is not a whole number, THEN THE Annotation_Service SHALL reject the request with a validation error indicating the invalid page number and SHALL NOT persist any Annotation_Record.
+
+
+### Requirement 8: Touch and Mobile Annotation Input
+
+**User Story:** As a note owner using a touch device, I want to highlight and draw with my finger without the page panning or zooming, so that annotation works reliably on mobile.
+
+#### Acceptance Criteria
+
+1. WHILE an annotation tool (highlight, scribble, or eraser) is active, WHEN the Owner presses and drags on the rendered PDF page, THE Viewer SHALL perform that tool's action and SHALL prevent the browser's default touch panning and pinch-zoom within the page area.
+2. WHILE the active tool is "none", THE Viewer SHALL allow normal touch scrolling and pinch-zoom of the PDF and SHALL NOT capture drawing input.
+3. WHEN the Owner presses and drags with the highlight tool active across a region of the page, THE Annotation_Overlay SHALL create a Highlight_Annotation covering the selectable text within the dragged region, or covering the dragged region itself when it contains no selectable text.
+4. THE Viewer SHALL capture annotation input equivalently for mouse, touch, and stylus using Pointer_Input.
+5. IF a highlight or scribble drag produces no usable region (an empty or zero-area drag), THEN THE System SHALL take no persistence action and SHALL leave existing annotations unchanged.
+
+### Requirement 9: Eraser Tool
+
+**User Story:** As a note owner, I want an eraser to remove individual annotations, so that I can delete a single highlight or scribble without reverting the entire PDF to its original state.
+
+#### Acceptance Criteria
+
+1. WHERE the Eraser_Tool is active, WHEN the Owner taps or drags over an existing annotation on the current page, THE System SHALL delete that Annotation_Record via the single-annotation delete operation.
+2. WHEN the Eraser_Tool deletes an annotation, THE Annotation_Overlay SHALL remove it from the displayed page within 200 milliseconds.
+3. THE Eraser_Tool SHALL delete only the annotations intersected by the eraser pointer and SHALL leave all other Annotation_Records unchanged.
+4. IF the Owner uses the Eraser_Tool at a location where no annotation exists, THEN THE System SHALL take no deletion action and SHALL leave all annotations unchanged.
+5. THE active Color_Palette selection SHALL NOT affect the Eraser_Tool's behavior.
+6. IF the single-annotation delete operation fails, THEN THE System SHALL restore the erased annotation to the displayed page and SHALL surface an error indication.

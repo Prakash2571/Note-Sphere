@@ -83,6 +83,24 @@ export function useAnnotations(noteId: string): UseAnnotations {
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<History>(emptyHistory);
 
+  // Holds the pending auto-clear timeout for transient undo/redo errors.
+  const errorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sets a transient error that auto-clears after ~4s (undo/redo). Clears any
+  // prior pending timeout first so overlapping errors don't clear prematurely.
+  const setTransientError = useCallback((msg: string) => {
+    setError(msg);
+    if (errorTimeoutRef.current) clearTimeout(errorTimeoutRef.current);
+    errorTimeoutRef.current = setTimeout(() => setError(null), 4000);
+  }, []);
+
+  // Clear any pending timeout on unmount.
+  useEffect(() => {
+    return () => {
+      if (errorTimeoutRef.current) clearTimeout(errorTimeoutRef.current);
+    };
+  }, []);
+
   // Keep a ref to the latest annotations for optimistic reconciliation without
   // stale closures.
   const annotationsRef = useRef<AnnotationDTO[]>([]);
@@ -182,37 +200,55 @@ export function useAnnotations(noteId: string): UseAnnotations {
 
   const rawCreate = useCallback(
     async (payload: ReturnType<typeof createPayload>): Promise<AnnotationDTO | null> => {
-      try {
-        const res = await fetch(`/api/notes/${noteId}/annotations`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to save annotation");
-        const saved: AnnotationDTO = data.annotation;
-        // Guard against a malformed DTO so the stacks never hold an unusable ref.
-        if (!saved || !saved._id) throw new Error("Malformed annotation");
-        return saved;
-      } catch {
-        return null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const res = await fetch(`/api/notes/${noteId}/annotations`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          // Non-ok response is not retried — preserve the existing null-on-failure behavior.
+          if (!res.ok) return null;
+          const saved: AnnotationDTO = data.annotation;
+          // Guard against a malformed DTO so the stacks never hold an unusable ref.
+          if (!saved || !saved._id) throw new Error("Malformed annotation");
+          return saved;
+        } catch {
+          if (attempt === 0) {
+            await new Promise((r) => setTimeout(r, 300));
+            continue;
+          }
+          return null;
+        }
       }
+      return null;
     },
     [noteId]
   );
 
   const rawDelete = useCallback(
     async (annotationId: string): Promise<boolean> => {
-      try {
-        const res = await fetch(
-          `/api/notes/${noteId}/annotations/${annotationId}`,
-          { method: "DELETE" }
-        );
-        if (!res.ok) throw new Error("Failed to delete annotation");
-        return true;
-      } catch {
-        return false;
+      // Unsaved optimistic mark — nothing persisted to delete.
+      if (annotationId.startsWith("temp-")) return true;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const res = await fetch(
+            `/api/notes/${noteId}/annotations/${annotationId}`,
+            { method: "DELETE" }
+          );
+          // Idempotent: already-absent (404) counts as success.
+          if (res.ok || res.status === 404) return true;
+          return false; // genuine server error (e.g. 500) — do not retry
+        } catch {
+          if (attempt === 0) {
+            await new Promise((r) => setTimeout(r, 300));
+            continue;
+          }
+          return false;
+        }
       }
+      return false;
     },
     [noteId]
   );
@@ -317,7 +353,7 @@ export function useAnnotations(noteId: string): UseAnnotations {
       if (!ok) {
         setAnnotations(annotationsSnapshot);
         setHistory(historySnapshot);
-        setError("Failed to undo.");
+        setTransientError("Failed to undo.");
         return;
       }
       setHistory(next);
@@ -328,14 +364,14 @@ export function useAnnotations(noteId: string): UseAnnotations {
       if (!saved) {
         setAnnotations(annotationsSnapshot);
         setHistory(historySnapshot);
-        setError("Failed to undo.");
+        setTransientError("Failed to undo.");
         return;
       }
       setAnnotations((prev) => [...prev, saved]);
       // Re-point the moved entry to the new server _id (Req 7.2).
       setHistory(applyNewId(next, source._id, saved));
     }
-  }, [rawCreate, rawDelete]);
+  }, [rawCreate, rawDelete, setTransientError]);
 
   const redo = useCallback(async () => {
     setError(null);
@@ -351,7 +387,7 @@ export function useAnnotations(noteId: string): UseAnnotations {
       if (!saved) {
         setAnnotations(annotationsSnapshot);
         setHistory(historySnapshot);
-        setError("Failed to redo.");
+        setTransientError("Failed to redo.");
         return;
       }
       setAnnotations((prev) => [...prev, saved]);
@@ -365,12 +401,12 @@ export function useAnnotations(noteId: string): UseAnnotations {
       if (!ok) {
         setAnnotations(annotationsSnapshot);
         setHistory(historySnapshot);
-        setError("Failed to redo.");
+        setTransientError("Failed to redo.");
         return;
       }
       setHistory(next);
     }
-  }, [rawCreate, rawDelete]);
+  }, [rawCreate, rawDelete, setTransientError]);
 
   const revertAll = useCallback(async () => {
     setError(null);

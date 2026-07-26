@@ -170,14 +170,16 @@ export function PDFDocument({
           scale={pageWidth ? undefined : scale}
           renderMode="canvas"
           devicePixelRatio={
-            typeof window !==
-            "undefined"
+            typeof window !== "undefined"
               ? Math.min(
-                  window.devicePixelRatio ||
-                    1,
-                  2
+                  Math.max(
+                    window.devicePixelRatio ||
+                      1,
+                    2
+                  ),
+                  3
                 )
-              : 1
+              : 2
           }
           renderTextLayer={true}
           renderAnnotationLayer={

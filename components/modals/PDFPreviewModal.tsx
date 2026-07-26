@@ -291,6 +291,10 @@ export function PDFPreviewModal({
             strokeWidth={strokeWidth}
             onStrokeWidthChange={setStrokeWidth}
             onRevert={annotations.revertAll}
+            onUndo={annotations.undo}
+            onRedo={annotations.redo}
+            canUndo={annotations.canUndo}
+            canRedo={annotations.canRedo}
             totalPages={numPages}
             onJumpToPage={handleJumpToPage}
           />

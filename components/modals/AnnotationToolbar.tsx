@@ -15,6 +15,8 @@ import {
   Eraser,
   MousePointer2,
   RotateCcw,
+  Undo2,
+  Redo2,
 } from "lucide-react";
 import { PALETTE, type PaletteColor } from "@/lib/annotations/validation";
 import type { Tool } from "@/lib/annotations/colorState";
@@ -31,6 +33,10 @@ export interface AnnotationToolbarProps {
   onRevert: () => void; // opens confirmation
   totalPages: number;
   onJumpToPage: (page: number) => void; // validated
+  onUndo: () => void; // step back one action
+  onRedo: () => void; // step forward one undone action
+  canUndo: boolean; // undo stack non-empty
+  canRedo: boolean; // redo stack non-empty
 }
 
 export function AnnotationToolbar({
@@ -44,6 +50,10 @@ export function AnnotationToolbar({
   onRevert,
   totalPages,
   onJumpToPage,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
 }: AnnotationToolbarProps) {
   const [pageInput, setPageInput] = useState("");
   const [pageError, setPageError] = useState<string | null>(null);
@@ -213,6 +223,28 @@ export function AnnotationToolbar({
           {pageError}
         </span>
       )}
+
+      {/* Undo / Redo */}
+      <div className="flex items-center gap-1 rounded-xl bg-white/5 p-1">
+        <button
+          type="button"
+          aria-label="Undo"
+          disabled={!canUndo}
+          onClick={onUndo}
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 transition hover:bg-white/5 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <Undo2 className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          aria-label="Redo"
+          disabled={!canRedo}
+          onClick={onRedo}
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 transition hover:bg-white/5 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <Redo2 className="h-4 w-4" />
+        </button>
+      </div>
 
       {/* Revert-all */}
       {!confirmRevert ? (

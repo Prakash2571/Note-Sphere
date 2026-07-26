@@ -8,6 +8,12 @@
  *  - highlight save failure  -> remove the optimistic highlight (Req 1.6)
  *  - scribble save failure   -> retain the rendered scribble  (Req 4.7)
  *  - revert-all failure      -> preserve the local set        (Req 3.7)
+ *
+ * It also wires the pure undo/redo history reducer (`lib/annotations/history.ts`)
+ * around this persistence layer. Create/erase gestures record a history entry
+ * that references the FINAL server DTO (creates record only after the POST
+ * resolves); `undo`/`redo` execute the side effect the pure layer describes
+ * (DELETE or POST) using history-agnostic helpers so they never double-record.
  */
 
 "use client";
@@ -16,6 +22,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { NormPoint, NormRect } from "@/lib/annotations/coordinates";
 import type { PaletteColor } from "@/lib/annotations/validation";
 import type { AnnotationDTO } from "@/lib/annotations/serialize";
+import {
+  emptyHistory,
+  recordAction,
+  undo as undoHistory,
+  redo as redoHistory,
+  clear as clearHistory,
+  applyNewId,
+  type History,
+  type UndoableAction,
+} from "@/lib/annotations/history";
 
 const MAX_ANNOTATIONS = 5000;
 
@@ -37,6 +53,10 @@ export interface UseAnnotations {
   ) => Promise<void>;
   deleteOne: (annotationId: string) => Promise<void>;
   revertAll: () => Promise<void>;
+  canUndo: boolean;
+  canRedo: boolean;
+  undo: () => Promise<void>;
+  redo: () => Promise<void>;
 }
 
 let tempCounter = 0;
@@ -45,15 +65,33 @@ function tempId(): string {
   return `temp-${Date.now()}-${tempCounter}`;
 }
 
+/** Build a create POST body from a stored DTO (Req 7.1: preserve mark fields). */
+function createPayload(dto: AnnotationDTO) {
+  return {
+    type: dto.type,
+    pageNumber: dto.pageNumber,
+    color: dto.color,
+    rects: dto.rects,
+    points: dto.points,
+    strokeWidth: dto.strokeWidth,
+  };
+}
+
 export function useAnnotations(noteId: string): UseAnnotations {
   const [annotations, setAnnotations] = useState<AnnotationDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<History>(emptyHistory);
 
   // Keep a ref to the latest annotations for optimistic reconciliation without
   // stale closures.
   const annotationsRef = useRef<AnnotationDTO[]>([]);
   annotationsRef.current = annotations;
+
+  // Mirror the history in a ref so undo/redo read the freshest stacks without
+  // stale closures (matches the annotationsRef pattern).
+  const historyRef = useRef<History>(emptyHistory);
+  historyRef.current = history;
 
   // Load all records on mount (Req 2.1) — tolerate up to 5000.
   useEffect(() => {
@@ -94,7 +132,7 @@ export function useAnnotations(noteId: string): UseAnnotations {
     async (
       optimistic: AnnotationDTO,
       keepOnFailure: boolean
-    ): Promise<void> => {
+    ): Promise<AnnotationDTO | null> => {
       // Optimistic render.
       setAnnotations((prev) => [...prev, optimistic]);
 
@@ -119,6 +157,7 @@ export function useAnnotations(noteId: string): UseAnnotations {
         setAnnotations((prev) =>
           prev.map((a) => (a._id === optimistic._id ? saved : a))
         );
+        return saved;
       } catch {
         if (keepOnFailure) {
           // Scribble: retain the rendered annotation (Req 4.7).
@@ -130,6 +169,49 @@ export function useAnnotations(noteId: string): UseAnnotations {
           );
           setError("Failed to save highlight.");
         }
+        return null;
+      }
+    },
+    [noteId]
+  );
+
+  // --- history-agnostic persistence primitives used by undo/redo ---------
+  // These perform the raw server call (and, for create, return the server DTO)
+  // WITHOUT recording any history action, so undo/redo can manage the stacks
+  // themselves without double-recording.
+
+  const rawCreate = useCallback(
+    async (payload: ReturnType<typeof createPayload>): Promise<AnnotationDTO | null> => {
+      try {
+        const res = await fetch(`/api/notes/${noteId}/annotations`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to save annotation");
+        const saved: AnnotationDTO = data.annotation;
+        // Guard against a malformed DTO so the stacks never hold an unusable ref.
+        if (!saved || !saved._id) throw new Error("Malformed annotation");
+        return saved;
+      } catch {
+        return null;
+      }
+    },
+    [noteId]
+  );
+
+  const rawDelete = useCallback(
+    async (annotationId: string): Promise<boolean> => {
+      try {
+        const res = await fetch(
+          `/api/notes/${noteId}/annotations/${annotationId}`,
+          { method: "DELETE" }
+        );
+        if (!res.ok) throw new Error("Failed to delete annotation");
+        return true;
+      } catch {
+        return false;
       }
     },
     [noteId]
@@ -150,7 +232,12 @@ export function useAnnotations(noteId: string): UseAnnotations {
         createdAt: now,
         updatedAt: now,
       };
-      await persist(optimistic, false);
+      // Record only after the POST resolves with the server DTO (Req 4/8.1);
+      // recordAction also clears the redo stack.
+      const saved = await persist(optimistic, false);
+      if (saved) {
+        setHistory((h) => recordAction(h, { kind: "create", annotation: saved }));
+      }
     },
     [noteId, persist]
   );
@@ -176,7 +263,12 @@ export function useAnnotations(noteId: string): UseAnnotations {
         createdAt: now,
         updatedAt: now,
       };
-      await persist(optimistic, true);
+      // Record only after the POST resolves with the server DTO (Req 4/8.1);
+      // recordAction also clears the redo stack.
+      const saved = await persist(optimistic, true);
+      if (saved) {
+        setHistory((h) => recordAction(h, { kind: "create", annotation: saved }));
+      }
     },
     [noteId, persist]
   );
@@ -185,6 +277,8 @@ export function useAnnotations(noteId: string): UseAnnotations {
     async (annotationId: string) => {
       setError(null);
       const snapshot = annotationsRef.current;
+      // Resolve the DTO before optimistic removal so an erase can be undone.
+      const removedDto = snapshot.find((a) => a._id === annotationId);
       // Optimistic removal.
       setAnnotations((prev) => prev.filter((a) => a._id !== annotationId));
       try {
@@ -193,6 +287,12 @@ export function useAnnotations(noteId: string): UseAnnotations {
           { method: "DELETE" }
         );
         if (!res.ok) throw new Error("Failed to delete annotation");
+        // Record the erase (eraser path records; undo/redo internals do not).
+        if (removedDto) {
+          setHistory((h) =>
+            recordAction(h, { kind: "erase", annotation: removedDto })
+          );
+        }
       } catch {
         // Restore on failure.
         setAnnotations(snapshot);
@@ -201,6 +301,76 @@ export function useAnnotations(noteId: string): UseAnnotations {
     },
     [noteId]
   );
+
+  const undo = useCallback(async () => {
+    setError(null);
+    const annotationsSnapshot = annotationsRef.current;
+    const historySnapshot = historyRef.current;
+    const { history: next, effect } = undoHistory(historyRef.current);
+    if (effect.op === "none") return;
+
+    if (effect.op === "delete") {
+      // Undoing a create: remove the mark and DELETE it on the server.
+      const target = effect.annotation;
+      setAnnotations((prev) => prev.filter((a) => a._id !== target._id));
+      const ok = await rawDelete(target._id);
+      if (!ok) {
+        setAnnotations(annotationsSnapshot);
+        setHistory(historySnapshot);
+        setError("Failed to undo.");
+        return;
+      }
+      setHistory(next);
+    } else {
+      // Undoing an erase: re-create the mark (server assigns a NEW _id).
+      const source = effect.annotation;
+      const saved = await rawCreate(createPayload(source));
+      if (!saved) {
+        setAnnotations(annotationsSnapshot);
+        setHistory(historySnapshot);
+        setError("Failed to undo.");
+        return;
+      }
+      setAnnotations((prev) => [...prev, saved]);
+      // Re-point the moved entry to the new server _id (Req 7.2).
+      setHistory(applyNewId(next, source._id, saved));
+    }
+  }, [rawCreate, rawDelete]);
+
+  const redo = useCallback(async () => {
+    setError(null);
+    const annotationsSnapshot = annotationsRef.current;
+    const historySnapshot = historyRef.current;
+    const { history: next, effect } = redoHistory(historyRef.current);
+    if (effect.op === "none") return;
+
+    if (effect.op === "create") {
+      // Redo of an undone create: re-create (server assigns a NEW _id).
+      const source = effect.annotation;
+      const saved = await rawCreate(createPayload(source));
+      if (!saved) {
+        setAnnotations(annotationsSnapshot);
+        setHistory(historySnapshot);
+        setError("Failed to redo.");
+        return;
+      }
+      setAnnotations((prev) => [...prev, saved]);
+      // Re-point the moved entry to the new server _id (Req 7.2).
+      setHistory(applyNewId(next, source._id, saved));
+    } else {
+      // Redo of an undone erase: remove the mark and DELETE it on the server.
+      const target = effect.annotation;
+      setAnnotations((prev) => prev.filter((a) => a._id !== target._id));
+      const ok = await rawDelete(target._id);
+      if (!ok) {
+        setAnnotations(annotationsSnapshot);
+        setHistory(historySnapshot);
+        setError("Failed to redo.");
+        return;
+      }
+      setHistory(next);
+    }
+  }, [rawCreate, rawDelete]);
 
   const revertAll = useCallback(async () => {
     setError(null);
@@ -211,6 +381,8 @@ export function useAnnotations(noteId: string): UseAnnotations {
       });
       if (!res.ok) throw new Error("Failed to clear annotations");
       setAnnotations([]);
+      // Drop both undo/redo stacks on a successful revert (Req 8.3).
+      setHistory(clearHistory());
     } catch {
       // Preserve the existing set on failure (Req 3.7).
       setAnnotations(snapshot);
@@ -228,6 +400,10 @@ export function useAnnotations(noteId: string): UseAnnotations {
       createScribble,
       deleteOne,
       revertAll,
+      canUndo: history.undoStack.length > 0,
+      canRedo: history.redoStack.length > 0,
+      undo,
+      redo,
     }),
     [
       annotations,
@@ -238,6 +414,9 @@ export function useAnnotations(noteId: string): UseAnnotations {
       createScribble,
       deleteOne,
       revertAll,
+      history,
+      undo,
+      redo,
     ]
   );
 }

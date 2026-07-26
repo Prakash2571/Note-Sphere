@@ -37,7 +37,7 @@ pdfjs.GlobalWorkerOptions.workerSrc =
  */
 const PDF_OPTIONS = {
   disableAutoFetch: true,
-  disableStream: false,
+  disableStream: true,
   rangeChunkSize: 65536,
 } as const;
 
@@ -52,6 +52,8 @@ interface PDFDocumentProps {
   currentPage: number;
 
   scale: number;
+
+  containerWidth?: number;
 
   onLoadSuccess: ({
     numPages,
@@ -80,6 +82,7 @@ export function PDFDocument({
   pdfUrl,
   currentPage,
   scale,
+  containerWidth,
   onLoadSuccess,
   onLoadError,
   pageAnnotations = [],
@@ -113,6 +116,19 @@ export function PDFDocument({
     typeof unscaledHeight === "number" &&
     unscaledWidth > 0 &&
     unscaledHeight > 0;
+
+  /**
+   * Container-relative (fit-to-width) baseline. When the viewer has measured
+   * its available content width, render the page by width so 100% fits the
+   * container and zoom visibly resizes; otherwise fall back to raw scale.
+   */
+  const fitWidth =
+    containerWidth && containerWidth > 0 ? containerWidth : undefined;
+  const pageWidth = fitWidth ? Math.max(fitWidth * scale, 100) : undefined;
+  const overlayScale =
+    pageWidth && typeof unscaledWidth === "number" && unscaledWidth > 0
+      ? pageWidth / unscaledWidth
+      : scale;
 
   return (
     <Document
@@ -150,7 +166,8 @@ export function PDFDocument({
       >
         <Page
           pageNumber={currentPage}
-          scale={scale}
+          width={pageWidth}
+          scale={pageWidth ? undefined : scale}
           renderMode="canvas"
           devicePixelRatio={
             typeof window !==
@@ -180,7 +197,7 @@ export function PDFDocument({
           <AnnotationOverlay
             annotations={pageAnnotations}
             pageNumber={currentPage}
-            scale={scale}
+            scale={overlayScale}
             unscaledWidth={unscaledWidth as number}
             unscaledHeight={unscaledHeight as number}
             tool={tool}

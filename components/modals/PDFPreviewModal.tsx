@@ -4,7 +4,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import dynamic from "next/dynamic";
 
@@ -92,6 +92,12 @@ export function PDFPreviewModal({
     unscaledHeight: number;
   } | null>(null);
 
+  const viewerRef = useRef<HTMLDivElement | null>(null);
+
+  const [containerWidth, setContainerWidth] = useState<number>(
+    typeof window !== "undefined" ? window.innerWidth : 0
+  );
+
   const annotations = useAnnotations(note._id);
 
   /* Own a browser history entry so mobile/hardware Back closes the viewer
@@ -131,6 +137,23 @@ export function PDFPreviewModal({
 
     loadPdf();
   }, [note._id, externalUrl]);
+
+  /* Measure the viewer's available content width so the page can fit-to-width.
+     Re-measures on mount and whenever the viewer resizes (ResizeObserver).
+     Depends on pdfUrl so it re-measures once the PDF area mounts. */
+  useEffect(() => {
+    const el = viewerRef.current;
+    if (!el) return;
+    const measure = () => {
+      const pad =
+        typeof window !== "undefined" && window.innerWidth >= 640 ? 48 : 24;
+      setContainerWidth(Math.max(el.clientWidth - pad, 0));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [pdfUrl]);
 
   /* PDF loaded */
   function onDocumentLoadSuccess({
@@ -308,11 +331,14 @@ export function PDFPreviewModal({
       )}
 
       {/* Viewer */}
-      <div className="flex-1 overflow-auto bg-[#0b1120] p-3 sm:p-6">
-        <div className="flex justify-center">
-          {/* Loading */}
-          {isLoading &&
-          !pdfUrl ? (
+      <div
+        ref={viewerRef}
+        className="flex-1 overflow-auto bg-[#0b1120] p-3 sm:p-6"
+      >
+        {/* Loading */}
+        {isLoading &&
+        !pdfUrl ? (
+          <div className="flex justify-center">
             <div className="mt-20 flex flex-col items-center gap-3">
               <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
 
@@ -320,8 +346,10 @@ export function PDFPreviewModal({
                 Loading PDF...
               </p>
             </div>
-          ) : error ? (
-            /* Error */
+          </div>
+        ) : error ? (
+          /* Error */
+          <div className="flex justify-center">
             <div className="mt-20 flex flex-col items-center gap-3 text-center">
               <AlertCircle className="h-10 w-10 text-red-400" />
 
@@ -329,14 +357,17 @@ export function PDFPreviewModal({
                 {error}
               </p>
             </div>
-          ) : pdfUrl ? (
-            /* PDF */
+          </div>
+        ) : pdfUrl ? (
+          /* PDF */
+          <div className="mx-auto w-fit">
             <PDFDocument
               pdfUrl={pdfUrl}
               currentPage={
                 currentPage
               }
               scale={scale}
+              containerWidth={containerWidth}
               onLoadSuccess={
                 onDocumentLoadSuccess
               }
@@ -354,8 +385,8 @@ export function PDFPreviewModal({
               unscaledWidth={pageDims?.unscaledWidth}
               unscaledHeight={pageDims?.unscaledHeight}
             />
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

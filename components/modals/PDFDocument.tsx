@@ -130,6 +130,17 @@ export function PDFDocument({
       ? pageWidth / unscaledWidth
       : scale;
 
+  const QUALITY = 2; // supersample the page to ~2x its intrinsic point width
+  const deviceDpr =
+    typeof window !== "undefined" ? window.devicePixelRatio || 1 : 2;
+  const renderDpr =
+    pageWidth && typeof unscaledWidth === "number" && unscaledWidth > 0
+      ? Math.min(
+          Math.max((unscaledWidth * QUALITY) / pageWidth, Math.min(deviceDpr, 2)),
+          4
+        )
+      : Math.min(Math.max(deviceDpr, 2), 3); // pre-measurement fallback
+
   return (
     <Document
       file={file}
@@ -169,18 +180,7 @@ export function PDFDocument({
           width={pageWidth}
           scale={pageWidth ? undefined : scale}
           renderMode="canvas"
-          devicePixelRatio={
-            typeof window !== "undefined"
-              ? Math.min(
-                  Math.max(
-                    window.devicePixelRatio ||
-                      1,
-                    2
-                  ),
-                  3
-                )
-              : 2
-          }
+          devicePixelRatio={renderDpr}
           renderTextLayer={true}
           renderAnnotationLayer={
             true

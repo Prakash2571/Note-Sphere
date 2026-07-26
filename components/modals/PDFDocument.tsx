@@ -30,6 +30,17 @@ pdfjs.GlobalWorkerOptions.workerSrc =
     import.meta.url
   ).toString();
 
+/**
+ * Module scope — stable identity so react-pdf does not reload the document.
+ * With disableAutoFetch, pdf.js requests only the byte ranges needed for the
+ * current page instead of eagerly downloading the whole file.
+ */
+const PDF_OPTIONS = {
+  disableAutoFetch: true,
+  disableStream: false,
+  rangeChunkSize: 65536,
+} as const;
+
 interface PageDimensions {
   unscaledWidth: number;
   unscaledHeight: number;
@@ -106,6 +117,7 @@ export function PDFDocument({
   return (
     <Document
       file={file}
+      options={PDF_OPTIONS}
       onLoadSuccess={
         onLoadSuccess
       }
@@ -143,11 +155,12 @@ export function PDFDocument({
           devicePixelRatio={
             typeof window !==
             "undefined"
-              ? Math.max(
-                  window.devicePixelRatio,
+              ? Math.min(
+                  window.devicePixelRatio ||
+                    1,
                   2
                 )
-              : 2
+              : 1
           }
           renderTextLayer={true}
           renderAnnotationLayer={

@@ -49,6 +49,31 @@ The following variables are required:
 > intended 2-day session window. Set it once (e.g. `openssl rand -base64 32`)
 > and reuse the same value across redeploys.
 
+## AWS S3 CORS (required for fast PDF loading)
+
+The PDF viewer uses HTTP Range requests so only the bytes for the current page are
+fetched instead of the whole file. For the browser to use Range requests against a
+presigned S3 URL cross-origin, the bucket CORS configuration **must** expose the
+range-related response headers. Without `ExposeHeaders`, the browser cannot read
+`Accept-Ranges` / `Content-Range` and pdf.js falls back to downloading the entire
+file (the viewer still works, but the speed-up does not apply).
+
+Example bucket CORS configuration:
+
+```json
+[
+  {
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedOrigins": ["https://your-app-origin.example.com"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["Accept-Ranges", "Content-Range", "Content-Length", "ETag"]
+  }
+]
+```
+
+Replace `AllowedOrigins` with your deployed app origin (use `http://localhost:3000`
+for local development).
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More

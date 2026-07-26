@@ -20,6 +20,7 @@ import {
 
 import { AnnotationToolbar } from "./AnnotationToolbar";
 import { useAnnotations } from "./useAnnotations";
+import { useHistoryBackClose } from "./useHistoryBackClose";
 import {
   DEFAULT_COLOR_STATE,
   selectColor,
@@ -92,6 +93,11 @@ export function PDFPreviewModal({
   } | null>(null);
 
   const annotations = useAnnotations(note._id);
+
+  /* Own a browser history entry so mobile/hardware Back closes the viewer
+     instead of leaving the app. The modal only mounts when open, so `active`
+     is effectively always true for its lifetime. */
+  const { closeWithHistory } = useHistoryBackClose(true, onClose);
 
   const activeColor: PaletteColor = activeColorFor(colorState, tool);
 
@@ -193,7 +199,7 @@ export function PDFPreviewModal({
         {/* Left */}
         <div className="flex min-w-0 items-center gap-3">
           <button
-            onClick={onClose}
+            onClick={closeWithHistory}
             className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-white/5 hover:text-white"
           >
             <X className="h-5 w-5" />

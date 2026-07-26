@@ -26,7 +26,12 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
   // ── Session strategy: JWT (stateless, no DB sessions needed) ────────────
   session: {
     strategy: "jwt",
-    maxAge:   30 * 24 * 60 * 60, // 30 days
+    maxAge:   2 * 24 * 60 * 60, // 2 days
+  },
+
+  // ── JWT lifetime: keep the underlying token in sync with the session ─────
+  jwt: {
+    maxAge: 2 * 24 * 60 * 60, // 2 days
   },
 
   // ── Providers ────────────────────────────────────────────────────────────

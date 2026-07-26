@@ -30,6 +30,7 @@ import {
 } from "@/lib/annotations/colorState";
 import type { PaletteColor } from "@/lib/annotations/validation";
 import type { NormPoint, NormRect } from "@/lib/annotations/coordinates";
+import { getCachedPdf, putCachedPdf, inFlightPrefetch } from "@/lib/pdfCache";
 
 const PDFDocument = dynamic(
   () =>
@@ -78,6 +79,17 @@ export function PDFPreviewModal({
   const [error, setError] =
     useState("");
 
+  /* Cache-hit render source (in-memory PDF bytes). */
+  const [pdfBytes, setPdfBytes] =
+    useState<Uint8Array | null>(null);
+
+  /* Controls the loading skeleton until the first page paints. */
+  const [firstPageRendered, setFirstPageRendered] =
+    useState(false);
+
+  /* Ensures the background prefetch runs at most once per open. */
+  const prefetchedRef = useRef(false);
+
   /* Annotation state */
   const [tool, setTool] = useState<Tool>("none");
 
@@ -107,35 +119,46 @@ export function PDFPreviewModal({
 
   const activeColor: PaletteColor = activeColorFor(colorState, tool);
 
-  /* Fetch signed URL */
+  /* Cache-first open: try the persistent byte cache before any network
+     request. On a miss/error, fall back to the unchanged Network_Load_Path
+     (external URL short-circuit, then presigned-URL fetch). */
   useEffect(() => {
-    if (externalUrl) return;
+    let cancelled = false;
+    setFirstPageRendered(false);
+    prefetchedRef.current = false;
+    setPdfBytes(null);
 
-    async function loadPdf() {
-      try {
-        const res = await fetch(
-          `/api/notes/${note._id}`
-        );
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.error);
-        }
-
-        setPdfUrl(
-          data.presignedUrl
-        );
-      } catch {
-        setError(
-          "Failed to load PDF. Please try again."
-        );
-      } finally {
+    (async () => {
+      // 1) cache-first
+      const cached = await getCachedPdf(note._id);
+      if (cancelled) return;
+      if (cached) {
+        setPdfBytes(new Uint8Array(cached));
         setIsLoading(false);
+        return;
       }
-    }
+      // 2) external url provided
+      if (externalUrl) {
+        setPdfUrl(externalUrl);
+        setIsLoading(false);
+        return;
+      }
+      // 3) fetch presigned url (existing behavior)
+      try {
+        const res = await fetch(`/api/notes/${note._id}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        if (!cancelled) setPdfUrl(data.presignedUrl);
+      } catch {
+        if (!cancelled) setError("Failed to load PDF. Please try again.");
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
 
-    loadPdf();
+    return () => {
+      cancelled = true;
+    };
   }, [note._id, externalUrl]);
 
   /* Measure the viewer's available content width so the page can fit-to-width.
@@ -155,6 +178,27 @@ export function PDFPreviewModal({
     return () => ro.disconnect();
   }, [pdfUrl]);
 
+  /* Background prefetch of the complete PDF file bytes. Runs once, only for
+     URL loads (nothing to prefetch when already rendering from cache), and is
+     best-effort: any failure leaves the cache unchanged and the URL path
+     keeps rendering. */
+  async function maybePrefetch() {
+    if (prefetchedRef.current || pdfBytes) return;
+    const src = externalUrl || pdfUrl;
+    if (!src) return;
+    if (inFlightPrefetch.has(note._id)) return;
+    prefetchedRef.current = true;
+    inFlightPrefetch.add(note._id);
+    try {
+      const buf = await fetch(src).then((r) => r.arrayBuffer());
+      await putCachedPdf(note._id, buf);
+    } catch {
+      /* non-fatal */
+    } finally {
+      inFlightPrefetch.delete(note._id);
+    }
+  }
+
   /* PDF loaded */
   function onDocumentLoadSuccess({
     numPages,
@@ -164,6 +208,8 @@ export function PDFPreviewModal({
     setNumPages(numPages);
 
     setIsLoading(false);
+
+    maybePrefetch();
   }
 
   /* PDF failed */
@@ -303,7 +349,7 @@ export function PDFPreviewModal({
       </div>
 
       {/* Annotation toolbar */}
-      {pdfUrl && !error && (
+      {(pdfUrl || pdfBytes) && !error && (
         <div className="flex items-center justify-between gap-3 overflow-x-auto border-b border-white/10 bg-[#0f172a]/60 px-3 py-2 sm:px-5">
           <AnnotationToolbar
             tool={tool}
@@ -335,19 +381,7 @@ export function PDFPreviewModal({
         ref={viewerRef}
         className="flex-1 overflow-auto bg-[#0b1120] p-3 sm:p-6"
       >
-        {/* Loading */}
-        {isLoading &&
-        !pdfUrl ? (
-          <div className="flex justify-center">
-            <div className="mt-20 flex flex-col items-center gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-
-              <p className="text-sm text-slate-400">
-                Loading PDF...
-              </p>
-            </div>
-          </div>
-        ) : error ? (
+        {error ? (
           /* Error */
           <div className="flex justify-center">
             <div className="mt-20 flex flex-col items-center gap-3 text-center">
@@ -358,33 +392,56 @@ export function PDFPreviewModal({
               </p>
             </div>
           </div>
-        ) : pdfUrl ? (
-          /* PDF */
-          <div className="mx-auto w-fit">
-            <PDFDocument
-              pdfUrl={pdfUrl}
-              currentPage={
-                currentPage
-              }
-              scale={scale}
-              containerWidth={containerWidth}
-              onLoadSuccess={
-                onDocumentLoadSuccess
-              }
-              onLoadError={
-                onDocumentLoadError
-              }
-              pageAnnotations={pageAnnotations}
-              tool={tool}
-              activeColor={activeColor}
-              strokeWidth={strokeWidth}
-              onPageDimensions={setPageDims}
-              onCreateHighlight={handleCreateHighlight}
-              onCreateScribble={handleCreateScribble}
-              onErase={annotations.deleteOne}
-              unscaledWidth={pageDims?.unscaledWidth}
-              unscaledHeight={pageDims?.unscaledHeight}
-            />
+        ) : pdfUrl || pdfBytes ? (
+          /* PDF — the document is always mounted once a source exists so its
+             first page can paint (and fire onFirstRender). A pulsing skeleton
+             is overlaid until that first paint happens. */
+          <div className="relative">
+            {!firstPageRendered && (
+              <div className="pointer-events-none absolute inset-0 z-10 flex justify-center">
+                <div className="mx-auto h-[80vh] w-full max-w-[800px] animate-pulse rounded-xl bg-white/5" />
+              </div>
+            )}
+
+            <div className="mx-auto w-fit">
+              <PDFDocument
+                pdfData={pdfBytes ?? undefined}
+                pdfUrl={pdfUrl ?? undefined}
+                onFirstRender={() => setFirstPageRendered(true)}
+                currentPage={
+                  currentPage
+                }
+                scale={scale}
+                containerWidth={containerWidth}
+                onLoadSuccess={
+                  onDocumentLoadSuccess
+                }
+                onLoadError={
+                  onDocumentLoadError
+                }
+                pageAnnotations={pageAnnotations}
+                tool={tool}
+                activeColor={activeColor}
+                strokeWidth={strokeWidth}
+                onPageDimensions={setPageDims}
+                onCreateHighlight={handleCreateHighlight}
+                onCreateScribble={handleCreateScribble}
+                onErase={annotations.deleteOne}
+                unscaledWidth={pageDims?.unscaledWidth}
+                unscaledHeight={pageDims?.unscaledHeight}
+              />
+            </div>
+          </div>
+        ) : isLoading ? (
+          /* Initial pre-source state */
+          <div className="flex justify-center">
+            <div className="mt-20 flex flex-col items-center gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+
+              <p className="text-sm text-slate-400">
+                Loading PDF...
+              </p>
+            </div>
           </div>
         ) : null}
       </div>

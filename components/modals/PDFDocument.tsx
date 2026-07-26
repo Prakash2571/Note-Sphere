@@ -47,7 +47,11 @@ interface PageDimensions {
 }
 
 interface PDFDocumentProps {
-  pdfUrl: string;
+  pdfUrl?: string;
+
+  pdfData?: Uint8Array;
+
+  onFirstRender?: () => void;
 
   currentPage: number;
 
@@ -80,6 +84,8 @@ interface PDFDocumentProps {
 
 export function PDFDocument({
   pdfUrl,
+  pdfData,
+  onFirstRender,
   currentPage,
   scale,
   containerWidth,
@@ -100,10 +106,8 @@ export function PDFDocument({
    * Prevent unnecessary rerenders
    */
   const file = useMemo(
-    () => ({
-      url: pdfUrl,
-    }),
-    [pdfUrl]
+    () => (pdfData ? { data: pdfData } : pdfUrl ? { url: pdfUrl } : null),
+    [pdfData, pdfUrl]
   );
 
   const annotationsEnabled =
@@ -140,6 +144,10 @@ export function PDFDocument({
           4
         )
       : Math.min(Math.max(deviceDpr, 2), 3); // pre-measurement fallback
+
+  if (file === null) {
+    return null;
+  }
 
   return (
     <Document
@@ -191,6 +199,7 @@ export function PDFDocument({
               unscaledWidth: viewport.width,
               unscaledHeight: viewport.height,
             });
+            onFirstRender?.();
           }}
           className="overflow-hidden rounded-xl shadow-2xl"
         />

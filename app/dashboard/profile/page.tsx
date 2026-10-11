@@ -54,36 +54,25 @@ export default function ProfilePage() {
 
   /* Fetch profile */
   const fetchProfile =
-    useCallback(async () => {
-      try {
-        const res = await fetch(
-          "/api/profile"
-        );
-
-        const result =
-          await res.json();
-
-        if (!res.ok) {
-          throw new Error(
-            result.error ||
-              "Failed to load profile."
-          );
-        }
-
-        setData(result);
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to load profile."
-        );
-      } finally {
-        setIsLoading(false);
-      }
+    useCallback(() => {
+      return fetch("/api/profile")
+        .then(async (res) => {
+          const result = await res.json();
+          if (!res.ok) throw new Error(result.error || "Failed to load profile.");
+          return result as ProfileData;
+        })
+        .then((result) => {
+          setData(result);
+          setError("");
+        })
+        .catch((err: unknown) => {
+          setError(err instanceof Error ? err.message : "Failed to load profile.");
+        })
+        .finally(() => setIsLoading(false));
     }, []);
 
   useEffect(() => {
-    fetchProfile();
+    void fetchProfile();
   }, [fetchProfile]);
 
   /* Loading */

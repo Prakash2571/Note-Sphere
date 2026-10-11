@@ -17,7 +17,7 @@
 
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   toPixelPoint,
   toPixelRect,
@@ -96,11 +96,11 @@ export function AnnotationOverlay({
   const erasingRef = useRef(false);
   const erasedThisDrag = useRef<Set<string>>(new Set());
 
-  const dims: PageDims = {
+  const dims: PageDims = useMemo(() => ({
     unscaledWidth,
     unscaledHeight,
     scale,
-  };
+  }), [unscaledWidth, unscaledHeight, scale]);
 
   const pixelWidth = unscaledWidth * scale;
   const pixelHeight = unscaledHeight * scale;

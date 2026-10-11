@@ -8,7 +8,6 @@ import { useEffect } from "react";
 
 import {
   FileText,
-  Loader2,
   Search,
   Sparkles,
   Upload,
@@ -170,7 +169,7 @@ export function NotesList() {
               No notes matched
               &nbsp;
               <span className="text-slate-300">
-                "{searchQuery}"
+                &quot;{searchQuery}&quot;
               </span>
             </p>
           </>
@@ -233,7 +232,7 @@ export function NotesList() {
       {/* Grid */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {filteredNotes.map(
-          (note: any) => (
+          (note) => (
             <NoteCard
               key={note._id}
               note={note}
@@ -271,6 +270,7 @@ export function NotesList() {
       {/* Preview Modal */}
       {previewNote && (
         <PDFPreviewModal
+          key={previewNote._id}
           note={previewNote}
           onClose={() =>
             dispatch(
@@ -283,6 +283,7 @@ export function NotesList() {
       {/* Share Modal */}
       {shareNote && (
         <ShareModal
+          key={shareNote._id}
           note={shareNote}
           onClose={() =>
             dispatch(
@@ -298,6 +299,7 @@ export function NotesList() {
       {/* Summarize Modal */}
       {summarizeNote && (
         <SummarizePanel
+          key={summarizeNote._id}
           note={summarizeNote}
           onClose={() =>
             dispatch(

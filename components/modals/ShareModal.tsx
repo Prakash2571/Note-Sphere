@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
   Check,
@@ -40,7 +40,11 @@ export function ShareModal({
   );
 
   const [shareUrl, setShareUrl] =
-    useState("");
+    useState(() =>
+      note.isShared && note.shareToken
+        ? `${typeof window === "undefined" ? "" : window.location.origin}/shared/${note.shareToken}`
+        : ""
+    );
 
   const [isLoading, setIsLoading] =
     useState(false);
@@ -49,15 +53,6 @@ export function ShareModal({
     useState(false);
 
   const [error, setError] = useState("");
-
-  /* Existing share URL */
-  useEffect(() => {
-    if (note.isShared && note.shareToken) {
-      setShareUrl(
-        `${window.location.origin}/shared/${note.shareToken}`
-      );
-    }
-  }, [note]);
 
   /* Generate share link */
   async function handleEnableShare() {

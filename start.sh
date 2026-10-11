@@ -19,8 +19,8 @@ for command in git node npm pm2 curl sudo; do
 done
 
 [[ "$(id -u)" -ne 0 ]] || die "Run this as the app user, not root, so PM2 uses the right account."
-node -e 'const [major, minor] = process.versions.node.split(".").map(Number); process.exit(major > 20 || (major === 20 && minor >= 9) ? 0 : 1)' \
-  || die "Next.js 16 requires Node.js 20.9 or newer."
+node -e 'const [major, minor] = process.versions.node.split(".").map(Number); process.exit((major === 22 && minor >= 12) || major === 24 || major >= 26 ? 0 : 1)' \
+  || die "Use Node.js 24 LTS (or Node.js 22.12+) for the app and deployment checks."
 
 cd "$APP_DIR"
 [[ "$(git rev-parse --is-inside-work-tree 2>/dev/null)" == "true" ]] || die "This directory is not a Git checkout."
@@ -38,8 +38,11 @@ fi
 
 # Validate sudo before modifying the live application.
 sudo -v
+sudo nginx -t
 printf 'Installing dependencies and building...\n'
 npm ci
+npm run lint
+npm test
 npm run build
 
 printf 'Starting or reloading %s with PM2...\n' "$APP_NAME"

@@ -58,7 +58,7 @@ export function SummarizePanel({
   >("idle");
 
   const [pdfjs, setPdfjs] =
-    useState<any>(null);
+    useState<typeof import("pdfjs-dist") | null>(null);
 
   /* Setup pdfjs only in browser */
   useEffect(() => {
@@ -74,16 +74,6 @@ export function SummarizePanel({
 
     setupPdfWorker();
   }, []);
-
-  /* Existing summary */
-  useEffect(() => {
-    if (
-      note.isSummarized &&
-      note.summary
-    ) {
-      setSummary(note.summary);
-    }
-  }, [note]);
 
   /* Extract text from PDF */
   async function extractTextFromPdf(
@@ -121,7 +111,7 @@ export function SummarizePanel({
 
       const pageText =
         textContent.items
-          .map((item: any) =>
+          .map((item) =>
             "str" in item
               ? item.str
               : ""

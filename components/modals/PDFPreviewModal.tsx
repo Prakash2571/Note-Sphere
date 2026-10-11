@@ -54,7 +54,11 @@ interface PDFPreviewModalProps {
   presignedUrl?: string;
 }
 
-export function PDFPreviewModal({
+export function PDFPreviewModal(props: PDFPreviewModalProps) {
+  return <PDFPreviewContent key={`${props.note._id}:${props.presignedUrl ?? ""}`} {...props} />;
+}
+
+function PDFPreviewContent({
   note,
   onClose,
   presignedUrl: externalUrl,
@@ -124,9 +128,6 @@ export function PDFPreviewModal({
      (external URL short-circuit, then presigned-URL fetch). */
   useEffect(() => {
     let cancelled = false;
-    setFirstPageRendered(false);
-    prefetchedRef.current = false;
-    setPdfBytes(null);
 
     (async () => {
       // 1) cache-first
@@ -183,14 +184,17 @@ export function PDFPreviewModal({
      best-effort: any failure leaves the cache unchanged and the URL path
      keeps rendering. */
   async function maybePrefetch() {
-    if (prefetchedRef.current || pdfBytes) return;
+    if (!note._id || prefetchedRef.current || pdfBytes) return;
     const src = externalUrl || pdfUrl;
     if (!src) return;
     if (inFlightPrefetch.has(note._id)) return;
     prefetchedRef.current = true;
     inFlightPrefetch.add(note._id);
     try {
-      const buf = await fetch(src).then((r) => r.arrayBuffer());
+      const buf = await fetch(src).then((r) => {
+        if (!r.ok) throw new Error("PDF prefetch failed");
+        return r.arrayBuffer();
+      });
       await putCachedPdf(note._id, buf);
     } catch {
       /* non-fatal */

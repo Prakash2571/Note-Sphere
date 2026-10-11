@@ -18,7 +18,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { NormPoint, NormRect } from "@/lib/annotations/coordinates";
 import type { PaletteColor } from "@/lib/annotations/validation";
 import type { AnnotationDTO } from "@/lib/annotations/serialize";
@@ -30,7 +30,6 @@ import {
   clear as clearHistory,
   applyNewId,
   type History,
-  type UndoableAction,
 } from "@/lib/annotations/history";
 
 const MAX_ANNOTATIONS = 5000;
@@ -104,12 +103,14 @@ export function useAnnotations(noteId: string): UseAnnotations {
   // Keep a ref to the latest annotations for optimistic reconciliation without
   // stale closures.
   const annotationsRef = useRef<AnnotationDTO[]>([]);
-  annotationsRef.current = annotations;
 
   // Mirror the history in a ref so undo/redo read the freshest stacks without
   // stale closures (matches the annotationsRef pattern).
   const historyRef = useRef<History>(emptyHistory);
-  historyRef.current = history;
+  useLayoutEffect(() => {
+    annotationsRef.current = annotations;
+    historyRef.current = history;
+  }, [annotations, history]);
 
   // Load all records on mount (Req 2.1) — tolerate up to 5000.
   useEffect(() => {

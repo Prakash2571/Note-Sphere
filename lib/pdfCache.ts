@@ -157,6 +157,9 @@ async function touchLastAccess(noteId: string): Promise<void> {
  * Returns `null` on miss or any error.
  */
 export async function getCachedPdf(noteId: string): Promise<ArrayBuffer | null> {
+  // Individual public share pages do not expose a note ID. Never reuse the
+  // empty key across different shared documents, including old cache entries.
+  if (!noteId) return null;
   try {
     const bytes = await withStore("readonly", async (store) => {
       const record = (await promisifyRequest(
@@ -234,6 +237,7 @@ export async function putCachedPdf(
   noteId: string,
   bytes: ArrayBuffer
 ): Promise<void> {
+  if (!noteId) return;
   try {
     if (!bytes || bytes.byteLength === 0) return;
     // A single file larger than the whole budget is never stored (Req 3.3).

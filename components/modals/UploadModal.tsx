@@ -64,6 +64,9 @@ export function UploadModal({
   const [isUploading, setIsUploading] =
     useState(false);
 
+  const [uploadStage, setUploadStage] =
+    useState<"preparing" | "uploading" | "saving" | null>(null);
+
   const [error, setError] =
     useState("");
 
@@ -96,6 +99,7 @@ export function UploadModal({
     setDescription("");
     setSelectedLabels([]);
     setError("");
+    setUploadStage(null);
   }
 
   if (!isOpen) return null;
@@ -193,8 +197,12 @@ export function UploadModal({
     try {
       setIsUploading(true);
       setError("");
+      setUploadStage("preparing");
 
-      const key = await uploadDirect(file, "/api/notes/upload-url");
+      const key = await uploadDirect(file, "/api/notes/upload-url", () =>
+        setUploadStage("uploading")
+      );
+      setUploadStage("saving");
 
       const response = await fetch("/api/notes", {
         method: "POST",
@@ -238,6 +246,7 @@ export function UploadModal({
       );
     } finally {
       setIsUploading(false);
+      setUploadStage(null);
     }
   }
 
@@ -493,7 +502,11 @@ export function UploadModal({
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
 
-                  Uploading...
+                  {uploadStage === "preparing"
+                    ? "Preparing upload..."
+                    : uploadStage === "saving"
+                    ? "Saving note..."
+                    : "Uploading PDF..."}
                 </>
               ) : (
                 <>

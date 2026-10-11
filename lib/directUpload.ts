@@ -1,6 +1,7 @@
 export async function uploadDirect(
   file: File,
-  ticketEndpoint: string
+  ticketEndpoint: string,
+  onUploadStart?: () => void
 ): Promise<string> {
   const ticketResponse = await fetch(ticketEndpoint, {
     method: "POST",
@@ -11,6 +12,8 @@ export async function uploadDirect(
   if (!ticketResponse.ok) {
     throw new Error(ticket.error || "Failed to prepare upload.");
   }
+
+  onUploadStart?.();
 
   let uploadResponse: Response;
   try {

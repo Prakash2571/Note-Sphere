@@ -1,7 +1,7 @@
 /**
  * app/api/notes/route.ts
  * GET  /api/notes  — List all notes for the authenticated user
- * POST /api/notes  — Upload a new PDF note to S3 and save metadata to MongoDB
+ * POST /api/notes  — Save metadata after a direct PDF upload to R2
  *
  * Auth.js v5: uses auth() directly — no more deprecated getServerSession(authOptions).
  * Next.js 16: route handlers are async by default.
@@ -10,10 +10,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
-import { uploadToS3 } from "@/lib/s3";
+import { getObjectInfo } from "@/lib/r2";
 import Note from "@/models/Note";
 import Label from "@/models/Label";
-import { v4 as uuidv4 } from "uuid";
 
 // ── GET — Fetch all notes ──────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -46,7 +45,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// ── POST — Upload a new note ───────────────────────────────────────────────────
+// ── POST — Confirm a direct R2 upload and save its metadata ───────────────────
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
@@ -54,58 +53,57 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const formData    = await req.formData();
-    const file        = formData.get("file")        as File   | null;
-    const title       = formData.get("title")       as string | null;
-    const description = formData.get("description") as string | null;
-    const labelsJson  = formData.get("labels")      as string | null;
+    const body = await req.json().catch(() => null);
+    const key = body?.key;
+    const title = body?.title;
+    const description = body?.description;
+    const labels = body?.labels;
 
-    // ── Validation ─────────────────────────────────────────────────────────
-    if (!file)          return NextResponse.json({ error: "PDF file is required" },  { status: 400 });
-    if (!title?.trim()) return NextResponse.json({ error: "Note title is required" },{ status: 400 });
-
-    if (file.type !== "application/pdf") {
-      return NextResponse.json({ error: "Only PDF files are allowed" }, { status: 400 });
+    if (typeof title !== "string" || !title.trim()) {
+      return NextResponse.json({ error: "Note title is required" }, { status: 400 });
+    }
+    if (title.trim().length > 200 || (description !== undefined && typeof description !== "string")) {
+      return NextResponse.json({ error: "Invalid note metadata" }, { status: 400 });
+    }
+    if (!Array.isArray(labels) || !labels.every((id: unknown) => typeof id === "string")) {
+      return NextResponse.json({ error: "Invalid labels" }, { status: 400 });
+    }
+    const ownPrefix = "notes/" + session.user.id + "/";
+    if (typeof key !== "string" || !key.startsWith(ownPrefix) ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$/i.test(key.slice(ownPrefix.length))) {
+      return NextResponse.json({ error: "Invalid upload key" }, { status: 400 });
     }
 
-    const MAX_BYTES = 50 * 1024 * 1024; // 50 MB
-    if (file.size > MAX_BYTES) {
-      return NextResponse.json({ error: "File size must be under 50 MB" }, { status: 400 });
-    }
-
-    // ── Upload to S3 ────────────────────────────────────────────────────────
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const s3Key  = `notes/${session.user.id}/${uuidv4()}.pdf`;
-    const s3Url  = await uploadToS3(s3Key, buffer, "application/pdf");
-
-    // ── Parse optional label ids ────────────────────────────────────────────
-    let labelIds: string[] = [];
-    if (labelsJson) {
-      try { labelIds = JSON.parse(labelsJson); } catch { /* ignore */ }
+    // The browser uploads directly to R2. HEAD is cheap and prevents metadata
+    // from pointing to a missing, oversized, or incorrectly typed object.
+    const object = await getObjectInfo("notes", key).catch(() => null);
+    const fileSize = object?.ContentLength;
+    if (!fileSize || fileSize > 50 * 1024 * 1024 || object.ContentType !== "application/pdf") {
+      return NextResponse.json({ error: "Upload is missing or invalid" }, { status: 400 });
     }
 
     await connectDB();
+    if (await Note.exists({ s3Key: key })) {
+      return NextResponse.json({ error: "Upload has already been saved" }, { status: 409 });
+    }
 
-    // ── Persist note metadata ───────────────────────────────────────────────
     const note = await Note.create({
-      userId:      session.user.id,
-      title:       title.trim(),
+      userId: session.user.id,
+      title: title.trim(),
       description: description?.trim() ?? "",
-      s3Key,
-      s3Url,
-      fileSize: file.size,
-      labels:   labelIds,
+      s3Key: key, // Legacy MongoDB field name; contains the R2 object key.
+      fileSize,
+      labels,
     });
 
-    // Bump noteCount on every assigned label
-    if (labelIds.length > 0) {
-      await Label.updateMany({ _id: { $in: labelIds } }, { $inc: { noteCount: 1 } });
+    if (labels.length > 0) {
+      await Label.updateMany({ _id: { $in: labels }, userId: session.user.id }, { $inc: { noteCount: 1 } });
     }
 
     const populated = await Note.findById(note._id).populate("labels", "name color");
     return NextResponse.json({ note: populated }, { status: 201 });
   } catch (error) {
     console.error("[POST NOTE]", error);
-    return NextResponse.json({ error: "Failed to upload note" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to save note" }, { status: 500 });
   }
 }

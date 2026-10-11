@@ -21,6 +21,7 @@ import { useAppDispatch } from "@/store/hooks";
 import { fetchNotes } from "@/store/slices/notesSlice";
 
 import { formatFileSize } from "@/lib/utils";
+import { uploadDirect } from "@/lib/directUpload";
 
 interface Label {
   _id: string;
@@ -193,42 +194,19 @@ export function UploadModal({
       setIsUploading(true);
       setError("");
 
-      const formData =
-        new FormData();
+      const key = await uploadDirect(file, "/api/notes/upload-url");
 
-      formData.append(
-        "file",
-        file
-      );
-
-      formData.append(
-        "title",
-        title.trim()
-      );
-
-      formData.append(
-        "description",
-        description.trim()
-      );
-
-      formData.append(
-        "labels",
-        JSON.stringify(
-          selectedLabels
-        )
-      );
-
-      const response =
-        await fetch(
-          "/api/notes",
-          {
-            method: "POST",
-            body: formData,
-          }
-        );
-
-      const data =
-        await response.json();
+      const response = await fetch("/api/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key,
+          title: title.trim(),
+          description: description.trim(),
+          labels: selectedLabels,
+        }),
+      });
+      const data = await response.json();
 
       if (!response.ok) {
         setError(

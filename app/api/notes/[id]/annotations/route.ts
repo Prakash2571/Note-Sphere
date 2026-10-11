@@ -7,8 +7,8 @@
  * Next.js 16: params is a Promise — must be awaited before use.
  * Auth.js v5: auth() replaces the deprecated getServerSession.
  *
- * The Source_PDF in S3 is never written by this handler (Req 3.3) — it imports
- * no S3 helper.
+ * The Source_PDF in R2 is never written by this handler (Req 3.3) — it imports
+ * no storage write helper.
  */
 
 import { NextRequest, NextResponse } from "next/server";

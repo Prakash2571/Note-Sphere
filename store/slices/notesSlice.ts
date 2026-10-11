@@ -26,7 +26,7 @@ export interface Note {
   _id:           string;
   title:         string;
   description:   string;
-  s3Url:         string;
+  s3Url?:        string;
   s3Key:         string;
   fileSize:      number;
   pageCount?:    number;
@@ -60,23 +60,6 @@ export const fetchNotes = createAsyncThunk<Note[]>(
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? "Failed to fetch notes");
     return data.notes as Note[];
-  }
-);
-
-/**
- * Upload a new PDF note. Takes a FormData with file + metadata.
- * Returns the populated note (with labels resolved).
- */
-export const uploadNote = createAsyncThunk<Note, FormData>(
-  "notes/upload",
-  async (formData) => {
-    const res  = await fetch("/api/notes", {
-      method: "POST",
-      body:   formData,
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "Failed to upload note");
-    return data.note as Note;
   }
 );
 
@@ -160,11 +143,6 @@ const notesSlice = createSlice({
       .addCase(fetchNotes.rejected,  (state, action) => {
         state.isLoading = false;
         state.error     = action.error.message ?? "Failed to load notes";
-      })
-
-      // ── uploadNote ──────────────────────────────────────────────────────
-      .addCase(uploadNote.fulfilled, (state, action) => {
-        state.items.unshift(action.payload); // newest first
       })
 
       // ── deleteNote ──────────────────────────────────────────────────────

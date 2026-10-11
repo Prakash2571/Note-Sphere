@@ -1,21 +1,15 @@
-/**
- * app/api/profile/avatar/route.ts
- *
- * POST /api/profile/avatar
- * Upload a new profile picture to S3 and save the URL to the user record.
- *
- * Stores avatars under: avatars/{userId}.{ext}
- * Replaces the previous avatar (S3 PUT overwrites the same key).
- */
-
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
-import { uploadToS3 } from "@/lib/s3";
+import { avatarPublicUrl, deleteObject, getObjectInfo, ownedAvatarKey } from "@/lib/r2";
 import User from "@/models/User";
 
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-const MAX_AVATAR_SIZE    = 5 * 1024 * 1024; // 5 MB
+const EXTENSIONS: Record<string, string> = {
+  jpg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+};
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,44 +18,40 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const formData = await req.formData();
-    const file     = formData.get("avatar") as File | null;
-
-    // ── Validation ────────────────────────────────────────────────────────────
-    if (!file) {
-      return NextResponse.json({ error: "No image file provided" }, { status: 400 });
+    const body = await req.json().catch(() => null);
+    const key = body?.key;
+    const prefix = "avatars/" + session.user.id + "/";
+    if (typeof key !== "string" || !key.startsWith(prefix)) {
+      return NextResponse.json({ error: "Invalid upload key" }, { status: 400 });
     }
-    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        { error: "Only JPG, PNG, WebP, and GIF images are allowed" },
-        { status: 400 }
-      );
-    }
-    if (file.size > MAX_AVATAR_SIZE) {
-      return NextResponse.json(
-        { error: "Image size must be under 5 MB" },
-        { status: 400 }
-      );
+    const match = key.slice(prefix.length).match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp|gif)$/i);
+    if (!match) {
+      return NextResponse.json({ error: "Invalid upload key" }, { status: 400 });
     }
 
-    // ── Upload to S3 ──────────────────────────────────────────────────────────
-    // Extract extension from MIME type, e.g. "image/png" → "png"
-    const extension = file.type.split("/")[1];
-    const s3Key     = `avatars/${session.user.id}.${extension}`;
-    const buffer    = Buffer.from(await file.arrayBuffer());
+    const object = await getObjectInfo("avatars", key).catch(() => null);
+    if (!object?.ContentLength || object.ContentLength > 5 * 1024 * 1024 ||
+        object.ContentType !== EXTENSIONS[match[1].toLowerCase()]) {
+      return NextResponse.json({ error: "Upload is missing or invalid" }, { status: 400 });
+    }
 
-    // Cache-buster appended to URL so the browser refetches after upload
-    const baseUrl     = await uploadToS3(s3Key, buffer, file.type);
-    const cacheBuster = `?t=${Date.now()}`;
-    const imageUrl    = `${baseUrl}${cacheBuster}`;
-
-    // ── Persist URL to user record ────────────────────────────────────────────
+    const image = avatarPublicUrl(key);
     await connectDB();
-    await User.findByIdAndUpdate(session.user.id, { image: imageUrl });
+    const user = await User.findById(session.user.id);
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    const previousKey = ownedAvatarKey(user.image, session.user.id);
+    user.image = image;
+    await user.save();
 
-    return NextResponse.json({ image: imageUrl });
+    if (previousKey && previousKey !== key) {
+      await deleteObject("avatars", previousKey).catch((error) =>
+        console.error("[DELETE OLD AVATAR]", error)
+      );
+    }
+
+    return NextResponse.json({ image });
   } catch (error) {
-    console.error("[UPLOAD AVATAR]", error);
-    return NextResponse.json({ error: "Failed to upload avatar" }, { status: 500 });
+    console.error("[SAVE AVATAR]", error);
+    return NextResponse.json({ error: "Failed to save avatar" }, { status: 500 });
   }
 }

@@ -23,6 +23,8 @@ function getClient(): S3Client {
       region: "auto",
       endpoint: "https://" + required("R2_ACCOUNT_ID") + ".r2.cloudflarestorage.com",
       forcePathStyle: true,
+      // Presigned browser PUTs do not have a body when signed, so skip the SDK default empty-body checksum.
+      requestChecksumCalculation: "WHEN_REQUIRED",
       credentials: {
         accessKeyId: required("R2_ACCESS_KEY_ID"),
         secretAccessKey: required("R2_SECRET_ACCESS_KEY"),

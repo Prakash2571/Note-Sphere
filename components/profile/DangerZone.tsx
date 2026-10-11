@@ -151,7 +151,7 @@ export function DangerZone() {
 
                 <ul className="space-y-2 pl-4 text-xs leading-5 text-red-300/80">
                   <li>
-                    • All uploaded PDFs from S3
+                    • All uploaded PDFs from R2
                   </li>
 
                   <li>

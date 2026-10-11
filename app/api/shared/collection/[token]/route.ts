@@ -3,14 +3,14 @@
  * GET /api/shared/collection/:token  — Public endpoint, no auth required.
  *
  * Resolves a share bundle token to every PDF it contains, returning metadata
- * plus a fresh inline preview URL and a forced-download URL for each PDF.
+ * plus a fresh private preview URL for each PDF.
  *
  * Next.js 16: params is a Promise.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
-import { getPresignedUrl } from "@/lib/s3";
+import { getPresignedUrl } from "@/lib/r2";
 import ShareCollection from "@/models/ShareCollection";
 // Importing these ensures the referenced models are registered before populate.
 import Note from "@/models/Note";
@@ -63,10 +63,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 
     const notes = await Promise.all(
       rawNotes.map(async (note) => {
-        const [previewUrl, downloadUrl] = await Promise.all([
-          getPresignedUrl(note.s3Key),
-          getPresignedUrl(note.s3Key, note.title),
-        ]);
+        const previewUrl = await getPresignedUrl(note.s3Key);
 
         return {
           _id: String(note._id),
@@ -83,7 +80,6 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
           pageCount: note.pageCount,
           createdAt: note.createdAt,
           previewUrl,
-          downloadUrl,
         };
       })
     );

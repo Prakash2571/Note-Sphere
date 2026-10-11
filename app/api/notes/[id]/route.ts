@@ -1,8 +1,8 @@
 /**
  * app/api/notes/[id]/route.ts
- * GET    /api/notes/:id  — Fetch one note + fresh S3 pre-signed URL
+ * GET    /api/notes/:id  — Fetch one note + fresh R2 pre-signed URL
  * PATCH  /api/notes/:id  — Update title, description, or labels
- * DELETE /api/notes/:id  — Delete from DB and S3
+ * DELETE /api/notes/:id  — Delete from DB and R2
  *
  * Next.js 16: params is a Promise — must be awaited before use.
  * Auth.js v5: auth() replaces the deprecated getServerSession.
@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
-import { getPresignedUrl, deleteFromS3 } from "@/lib/s3";
+import { getPresignedUrl, deleteObject } from "@/lib/r2";
 import Note from "@/models/Note";
 import Label from "@/models/Label";
 import Annotation from "@/models/Annotation";
@@ -96,8 +96,8 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     const note = await Note.findOne({ _id: id, userId: session.user.id });
     if (!note) return NextResponse.json({ error: "Note not found" }, { status: 404 });
 
-    // Remove file from S3 first, then clean up DB
-    await deleteFromS3(note.s3Key);
+    // Remove file from R2 first, then clean up DB
+    await deleteObject("notes", note.s3Key);
 
     if (note.labels.length > 0) {
       await Label.updateMany({ _id: { $in: note.labels } }, { $inc: { noteCount: -1 } });

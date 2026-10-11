@@ -16,7 +16,7 @@ export interface INote
 
   s3Key: string;
 
-  s3Url: string;
+  s3Url?: string;
 
   fileSize: number;
 
@@ -74,19 +74,15 @@ const NoteSchema =
 
       s3Key: {
         type: String,
+        unique: true,
         required: [
           true,
-          "S3 key is required",
+          "Storage key is required",
         ],
       },
 
-      s3Url: {
-        type: String,
-        required: [
-          true,
-          "S3 URL is required",
-        ],
-      },
+      // Kept for existing records; new private R2 objects have no permanent URL.
+      s3Url: { type: String },
 
       fileSize: {
         type: Number,

@@ -38,7 +38,6 @@ interface SharedNote {
   pageCount?: number;
   createdAt: string;
   previewUrl: string;
-  downloadUrl: string;
 }
 
 interface ApiResponse {
@@ -63,6 +62,34 @@ export default function SharedCollectionPage({
 
   /* The note currently open in the PDF preview modal */
   const [previewNote, setPreviewNote] = useState<SharedNote | null>(null);
+
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<{ id: string; message: string } | null>(null);
+
+  async function downloadNote(note: SharedNote) {
+    setDownloadingId(note._id);
+    setDownloadError(null);
+    try {
+      const response = await fetch(note.previewUrl);
+      if (!response.ok) throw new Error("The download link expired. Refresh the page and try again.");
+      const objectUrl = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      const name = note.title.replace(/[<>:"/\\|?*\x00-\x1f]/g, "").trim().slice(0, 120) || "document";
+      link.href = objectUrl;
+      link.download = name.toLowerCase().endsWith(".pdf") ? name : name + ".pdf";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    } catch (error) {
+      setDownloadError({
+        id: note._id,
+        message: error instanceof Error ? error.message : "Download failed.",
+      });
+    } finally {
+      setDownloadingId(null);
+    }
+  }
 
   useEffect(() => {
     async function loadCollection() {
@@ -285,14 +312,19 @@ export default function SharedCollectionPage({
                     Preview
                   </button>
 
-                  <a
-                    href={note.downloadUrl}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/10"
+                  <button
+                    type="button"
+                    onClick={() => downloadNote(note)}
+                    disabled={downloadingId === note._id}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/10 disabled:opacity-50"
                   >
-                    <Download className="h-4 w-4" />
-                    Download
-                  </a>
+                    {downloadingId === note._id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    {downloadingId === note._id ? "Downloading..." : "Download"}
+                  </button>
                 </div>
+                {downloadError?.id === note._id && (
+                  <p className="mt-2 text-xs text-red-400">{downloadError.message}</p>
+                )}
               </div>
             ))}
           </div>

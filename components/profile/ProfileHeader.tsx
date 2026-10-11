@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { formatFileSize } from "@/lib/utils";
+import { uploadDirect } from "@/lib/directUpload";
 
 import type { ProfileData } from "@/app/dashboard/profile/page";
 
@@ -64,18 +65,12 @@ export function ProfileHeader({
     setIsUploading(true);
 
     try {
-      const formData = new FormData();
-
-      formData.append("avatar", file);
-
-      const res = await fetch(
-        "/api/profile/avatar",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-
+      const key = await uploadDirect(file, "/api/profile/avatar/upload-url");
+      const res = await fetch("/api/profile/avatar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key }),
+      });
       const result = await res.json();
 
       if (!res.ok) {
@@ -235,11 +230,15 @@ export function ProfileHeader({
 
           {/* Overlay */}
           <button
+            type="button"
             onClick={() =>
               fileInputRef.current?.click()
             }
             disabled={isUploading}
-            className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 opacity-0 transition group-hover:opacity-100"
+            aria-label={isUploading ? "Uploading profile photo" : "Change profile photo"}
+            className={`absolute inset-0 flex items-center justify-center rounded-full bg-black/60 transition focus-visible:opacity-100 ${
+              isUploading ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            }`}
           >
             {isUploading ? (
               <Loader2 className="w-6 h-6 animate-spin text-white" />

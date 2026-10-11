@@ -21,6 +21,7 @@ import { useAppDispatch } from "@/store/hooks";
 import { fetchNotes } from "@/store/slices/notesSlice";
 
 import { formatFileSize } from "@/lib/utils";
+import { uploadDirect } from "@/lib/directUpload";
 
 interface Label {
   _id: string;
@@ -63,6 +64,9 @@ export function UploadModal({
   const [isUploading, setIsUploading] =
     useState(false);
 
+  const [uploadStage, setUploadStage] =
+    useState<"preparing" | "uploading" | "saving" | null>(null);
+
   const [error, setError] =
     useState("");
 
@@ -95,6 +99,7 @@ export function UploadModal({
     setDescription("");
     setSelectedLabels([]);
     setError("");
+    setUploadStage(null);
   }
 
   if (!isOpen) return null;
@@ -192,43 +197,24 @@ export function UploadModal({
     try {
       setIsUploading(true);
       setError("");
+      setUploadStage("preparing");
 
-      const formData =
-        new FormData();
-
-      formData.append(
-        "file",
-        file
+      const key = await uploadDirect(file, "/api/notes/upload-url", () =>
+        setUploadStage("uploading")
       );
+      setUploadStage("saving");
 
-      formData.append(
-        "title",
-        title.trim()
-      );
-
-      formData.append(
-        "description",
-        description.trim()
-      );
-
-      formData.append(
-        "labels",
-        JSON.stringify(
-          selectedLabels
-        )
-      );
-
-      const response =
-        await fetch(
-          "/api/notes",
-          {
-            method: "POST",
-            body: formData,
-          }
-        );
-
-      const data =
-        await response.json();
+      const response = await fetch("/api/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key,
+          title: title.trim(),
+          description: description.trim(),
+          labels: selectedLabels,
+        }),
+      });
+      const data = await response.json();
 
       if (!response.ok) {
         setError(
@@ -260,6 +246,7 @@ export function UploadModal({
       );
     } finally {
       setIsUploading(false);
+      setUploadStage(null);
     }
   }
 
@@ -515,7 +502,11 @@ export function UploadModal({
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
 
-                  Uploading...
+                  {uploadStage === "preparing"
+                    ? "Preparing upload..."
+                    : uploadStage === "saving"
+                    ? "Saving note..."
+                    : "Uploading PDF..."}
                 </>
               ) : (
                 <>

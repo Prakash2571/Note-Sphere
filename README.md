@@ -1,92 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Note-Sphere
 
-## Getting Started
+Next.js note app with MongoDB metadata and Cloudflare R2 file storage.
 
-First, run the development server:
+## Run locally
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Copy .env.example to .env.local, set the values, then run:
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+    npm ci
+    npm run dev
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Set AUTH_SECRET once and keep it the same across deployments. Generate it with:
 
-## Environment Variables
+    openssl rand -base64 32
 
-Copy the example file and fill in your values before running the app:
+## R2 setup
 
-```bash
-cp .env.example .env.local
-```
+1. Create two R2 **Standard** buckets. Keep R2_NOTES_BUCKET private. Connect R2_AVATARS_BUCKET to a public custom domain, and set R2_AVATARS_PUBLIC_URL to that domain. Never make the notes bucket public.
+2. Create an R2 API token with object read/write permission for both buckets. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY on the app host. The existing AWS S3 environment variables are no longer used.
+3. Configure the private notes bucket CORS policy for the deployed app origin. Add localhost as another origin when developing locally:
 
-The following variables are required:
+       [
+         {
+           "AllowedOrigins": ["https://your-app.example.com", "http://localhost:3000"],
+           "AllowedMethods": ["GET", "HEAD", "PUT"],
+           "AllowedHeaders": ["Content-Type", "Range"],
+           "ExposeHeaders": ["Accept-Ranges", "Content-Range", "Content-Length", "ETag"],
+           "MaxAgeSeconds": 3600
+         }
+       ]
 
-| Variable | Purpose |
-| --- | --- |
-| `AUTH_SECRET` | Stable secret used by Auth.js v5 to sign/encrypt session JWTs. |
-| `AUTH_URL` | Base URL of the app, used to build share links (e.g. `http://localhost:3000`). |
-| `AUTH_GOOGLE_ID` | Google OAuth client id. |
-| `AUTH_GOOGLE_SECRET` | Google OAuth client secret. |
-| `MONGODB_URI` | MongoDB connection string. |
-| `AWS_REGION` | AWS region for the S3 bucket. |
-| `AWS_ACCESS_KEY_ID` | AWS access key id for S3. |
-| `AWS_SECRET_ACCESS_KEY` | AWS secret access key for S3. |
-| `AWS_S3_BUCKET_NAME` | S3 bucket that stores uploaded PDFs. |
-| `GEMINI_API_KEY` | Google Gemini API key for AI summaries. |
+4. Configure the public avatars bucket CORS policy for direct browser uploads:
 
-> **Important — keep `AUTH_SECRET` stable.** `AUTH_SECRET` **must** be set to the
-> same stable value in every environment (development, preview, and production).
-> Auth.js v5 uses it to sign session JWTs. If it is missing or changes between
-> deploys or serverless cold starts, existing tokens are re-signed with a
-> different secret and invalidated early — logging users out well before the
-> intended 2-day session window. Set it once (e.g. `openssl rand -base64 32`)
-> and reuse the same value across redeploys.
+       [
+         {
+           "AllowedOrigins": ["https://your-app.example.com", "http://localhost:3000"],
+           "AllowedMethods": ["PUT"],
+           "AllowedHeaders": ["Content-Type"],
+           "ExposeHeaders": ["ETag"],
+           "MaxAgeSeconds": 3600
+         }
+       ]
 
-## AWS S3 CORS (required for fast PDF loading)
+Use the exact production origin, including scheme. R2 presigned URLs use the R2 S3 API endpoint, not the avatar custom domain. Keep the API token on the server; the browser only receives short-lived, object-specific PUT URLs.
 
-The PDF viewer uses HTTP Range requests so only the bytes for the current page are
-fetched instead of the whole file. For the browser to use Range requests against a
-presigned S3 URL cross-origin, the bucket CORS configuration **must** expose the
-range-related response headers. Without `ExposeHeaders`, the browser cannot read
-`Accept-Ranges` / `Content-Range` and pdf.js falls back to downloading the entire
-file (the viewer still works, but the speed-up does not apply).
+The app signs a PUT URL, uploads the PDF or avatar directly from the browser, verifies the object with HEAD, and then saves its MongoDB metadata. This avoids sending a 50 MB PDF through a Next.js function. Private PDF reads still use one-hour signed GET URLs and HTTP byte ranges, so the viewer can fetch only the needed pages. Browser-side PDF caching remains enabled.
 
-Example bucket CORS configuration:
+## Existing S3 data
 
-```json
-[
-  {
-    "AllowedMethods": ["GET", "HEAD"],
-    "AllowedOrigins": ["https://your-app-origin.example.com"],
-    "AllowedHeaders": ["*"],
-    "ExposeHeaders": ["Accept-Ranges", "Content-Range", "Content-Length", "ETag"]
-  }
-]
-```
+Before switching production traffic, copy all existing PDF objects from the old S3 bucket to R2_NOTES_BUCKET with the **same object keys**. Cloudflare's [Super Slurper](https://developers.cloudflare.com/r2/data-migration/super-slurper/) can copy an S3 bucket to R2. The MongoDB field named s3Key is retained for compatibility; it now holds an R2 key.
 
-Replace `AllowedOrigins` with your deployed app origin (use `http://localhost:3000`
-for local development).
+Copy old avatar objects (keys starting with avatars/) to R2_AVATARS_BUCKET. Existing MongoDB user.image values point to S3 URLs, so run `node scripts/migrate-avatar-urls.mjs` to preview URL changes, then `node scripts/migrate-avatar-urls.mjs --apply` after copying and checking the objects. New avatar uploads use immutable R2 URLs. Confirm several existing PDFs and avatars load, including a shared PDF link, before removing S3 access.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deployment checks
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Upload a PDF near 50 MB and a 5 MB avatar.
+- Open a PDF and verify the browser receives 206 Partial Content with Content-Range; confirm a second open uses the local PDF cache.
+- Open individual and collection share links, including the Download action.
+- Delete a note and an account, then verify their R2 objects are gone.
+- Monitor R2 storage and operation usage against the monthly free allowance.

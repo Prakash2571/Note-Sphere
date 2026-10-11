@@ -2,13 +2,13 @@
  * app/api/shared/[token]/route.ts
  * GET /api/shared/:token  — Public endpoint, no auth required.
  *
- * Returns note metadata + a fresh pre-signed S3 URL for the PDF.
+ * Returns note metadata + a fresh pre-signed R2 URL for the PDF.
  * Next.js 15: params is a Promise.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
-import { getPresignedUrl } from "@/lib/s3";
+import { getPresignedUrl } from "@/lib/r2";
 import Note from "@/models/Note";
 
 type RouteParams = { params: Promise<{ token: string }> };

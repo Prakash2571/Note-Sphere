@@ -5,6 +5,12 @@ APP_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 APP_NAME="notesphere"
 DOMAIN="notesphere.fun"
 BRANCH="main"
+SETUP_NGINX=0
+case "${1:-}" in
+  "") ;;
+  --setup-nginx) SETUP_NGINX=1 ;;
+  *) printf 'Usage: %s [--setup-nginx]\n' "$0" >&2; exit 1 ;;
+esac
 NGINX_SOURCE="$APP_DIR/deploy/notesphere.fun.nginx.conf"
 NGINX_AVAILABLE="/etc/nginx/sites-available/$DOMAIN"
 NGINX_ENABLED="/etc/nginx/sites-enabled/$DOMAIN"
@@ -14,7 +20,7 @@ die() {
   exit 1
 }
 
-for command in git node npm pm2 curl sudo; do
+for command in git node npm pm2 curl; do
   command -v "$command" >/dev/null 2>&1 || die "Missing required command: $command"
 done
 
@@ -36,9 +42,16 @@ if [[ ! -f .env.production.local && ! -f .env.local && ! -f .env ]]; then
   die "Create .env.production.local from .env.example and fill in production values before deploying."
 fi
 
-# Validate sudo before modifying the live application.
-sudo -v
-sudo nginx -t
+# Only initial proxy setup needs administrator access. An unchanged Nginx
+# configuration keeps proxying to port 3000 across application restarts.
+if [[ "$SETUP_NGINX" -eq 1 ]]; then
+  command -v sudo >/dev/null 2>&1 || die "Missing required command: sudo"
+  sudo -v
+  sudo nginx -t
+else
+  [[ -f "$NGINX_AVAILABLE" && -e "$NGINX_ENABLED" ]] \
+    || die "Nginx site is missing. Run ./start.sh --setup-nginx once."
+fi
 printf 'Installing dependencies and building...\n'
 npm ci
 npm run lint
@@ -62,16 +75,18 @@ done
 
 # Install the HTTP site once. Certbot may edit the installed copy later, so
 # subsequent deployments must not overwrite it.
-if [[ ! -e "$NGINX_AVAILABLE" ]]; then
-  sudo install -m 644 "$NGINX_SOURCE" "$NGINX_AVAILABLE"
-fi
-if [[ ! -e "$NGINX_ENABLED" && ! -L "$NGINX_ENABLED" ]]; then
-  sudo ln -s "$NGINX_AVAILABLE" "$NGINX_ENABLED"
-fi
+if [[ "$SETUP_NGINX" -eq 1 ]]; then
+  if [[ ! -e "$NGINX_AVAILABLE" ]]; then
+    sudo install -m 644 "$NGINX_SOURCE" "$NGINX_AVAILABLE"
+  fi
+  if [[ ! -e "$NGINX_ENABLED" && ! -L "$NGINX_ENABLED" ]]; then
+    sudo ln -s "$NGINX_AVAILABLE" "$NGINX_ENABLED"
+  fi
 
-printf 'Validating and reloading Nginx...\n'
-sudo nginx -t
-sudo systemctl reload nginx
+  printf 'Validating and reloading Nginx...\n'
+  sudo nginx -t
+  sudo systemctl reload nginx
+fi
 
 # Resolve the domain to this machine to test Nginx before DNS propagates.
 curl --noproxy '*' --fail --silent --show-error --location --max-time 15 \

@@ -87,9 +87,9 @@ function PDFPreviewContent({
   const [pdfBytes, setPdfBytes] =
     useState<Uint8Array | null>(null);
 
-  /* Controls the loading skeleton until the first page paints. */
-  const [firstPageRendered, setFirstPageRendered] =
-    useState(false);
+  /* Track the page that has actually painted, not only the requested page. */
+  const [renderedPage, setRenderedPage] =
+    useState<number | null>(null);
 
   /* Ensures the background prefetch runs at most once per open. */
   const prefetchedRef = useRef(false);
@@ -212,8 +212,6 @@ function PDFPreviewContent({
     setNumPages(numPages);
 
     setIsLoading(false);
-
-    maybePrefetch();
   }
 
   /* PDF failed */
@@ -246,8 +244,24 @@ function PDFPreviewContent({
     setColorState((prev) => selectColor(prev, { tool: target, color }));
   }
 
+  function goToPage(page: number) {
+    if (numPages < 1 || !Number.isFinite(page)) return;
+    const nextPage = Math.min(Math.max(Math.trunc(page), 1), numPages);
+    if (nextPage === currentPage) return;
+    viewerRef.current?.scrollTo(0, 0);
+    setPageDims(null);
+    setRenderedPage(null);
+    setCurrentPage(nextPage);
+  }
+
   function handleJumpToPage(page: number) {
-    setCurrentPage(page);
+    goToPage(page);
+  }
+
+  function handlePageRendered() {
+    setRenderedPage(currentPage);
+    // Let the requested page paint before downloading the whole PDF for cache.
+    void maybePrefetch();
   }
 
   function handleCreateHighlight(rects: NormRect[]) {
@@ -321,12 +335,10 @@ function PDFPreviewContent({
 
           {/* Previous */}
           <button
-            onClick={() =>
-              setCurrentPage((prev) =>
-                Math.max(prev - 1, 1)
-              )
-            }
-            disabled={currentPage <= 1}
+            type="button"
+            aria-label="Previous page"
+            onClick={() => goToPage(currentPage - 1)}
+            disabled={numPages < 1 || currentPage <= 1}
             className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-white/5 hover:text-white disabled:opacity-30"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -334,17 +346,10 @@ function PDFPreviewContent({
 
           {/* Next */}
           <button
-            onClick={() =>
-              setCurrentPage((prev) =>
-                Math.min(
-                  prev + 1,
-                  numPages
-                )
-              )
-            }
-            disabled={
-              currentPage >= numPages
-            }
+            type="button"
+            aria-label="Next page"
+            onClick={() => goToPage(currentPage + 1)}
+            disabled={numPages < 1 || currentPage >= numPages}
             className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-white/5 hover:text-white disabled:opacity-30"
           >
             <ChevronRight className="h-4 w-4" />
@@ -398,10 +403,10 @@ function PDFPreviewContent({
           </div>
         ) : pdfUrl || pdfBytes ? (
           /* PDF — the document is always mounted once a source exists so its
-             first page can paint (and fire onFirstRender). A pulsing skeleton
-             is overlaid until that first paint happens. */
+             page can paint (and fire onFirstRender). A pulsing skeleton
+             is overlaid until the requested page paints. */
           <div className="relative">
-            {!firstPageRendered && (
+            {renderedPage !== currentPage && (
               <div className="pointer-events-none absolute inset-0 z-10 flex justify-center">
                 <div className="mx-auto h-[80vh] w-full max-w-[800px] animate-pulse rounded-xl bg-white/5" />
               </div>
@@ -411,7 +416,7 @@ function PDFPreviewContent({
               <PDFDocument
                 pdfData={pdfBytes ?? undefined}
                 pdfUrl={pdfUrl ?? undefined}
-                onFirstRender={() => setFirstPageRendered(true)}
+                onFirstRender={handlePageRendered}
                 currentPage={
                   currentPage
                 }

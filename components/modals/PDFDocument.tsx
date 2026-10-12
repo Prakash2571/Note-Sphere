@@ -38,7 +38,7 @@ pdfjs.GlobalWorkerOptions.workerSrc =
 const PDF_OPTIONS = {
   disableAutoFetch: true,
   disableStream: true,
-  rangeChunkSize: 65536,
+  rangeChunkSize: 262144,
 } as const;
 
 interface PageDimensions {
@@ -126,24 +126,24 @@ export function PDFDocument({
    * its available content width, render the page by width so 100% fits the
    * container and zoom visibly resizes; otherwise fall back to raw scale.
    */
+  // Keep a readable page width on large screens while fitting narrow viewports.
   const fitWidth =
-    containerWidth && containerWidth > 0 ? containerWidth : undefined;
+    containerWidth && containerWidth > 0
+      ? Math.min(containerWidth, 960)
+      : undefined;
   const pageWidth = fitWidth ? Math.max(fitWidth * scale, 100) : undefined;
   const overlayScale =
     pageWidth && typeof unscaledWidth === "number" && unscaledWidth > 0
       ? pageWidth / unscaledWidth
       : scale;
 
-  const QUALITY = 2; // supersample the page to ~2x its intrinsic point width
+  // Render text/vector content sharply without allocating huge canvases at high zoom.
   const deviceDpr =
     typeof window !== "undefined" ? window.devicePixelRatio || 1 : 2;
-  const renderDpr =
-    pageWidth && typeof unscaledWidth === "number" && unscaledWidth > 0
-      ? Math.min(
-          Math.max((unscaledWidth * QUALITY) / pageWidth, Math.min(deviceDpr, 2)),
-          4
-        )
-      : Math.min(Math.max(deviceDpr, 2), 3); // pre-measurement fallback
+  const renderDpr = Math.max(
+    1,
+    Math.min(Math.max(deviceDpr, 2), 3, 3200 / (pageWidth ?? 960))
+  );
 
   if (file === null) {
     return null;
@@ -184,6 +184,7 @@ export function PDFDocument({
         }
       >
         <Page
+          key={currentPage}
           pageNumber={currentPage}
           width={pageWidth}
           scale={pageWidth ? undefined : scale}
@@ -193,7 +194,15 @@ export function PDFDocument({
           renderAnnotationLayer={
             true
           }
+          loading={
+            <div role="status" className="p-10 text-slate-400">
+              Loading page {currentPage}...
+            </div>
+          }
+          onLoadError={onLoadError}
+          onRenderError={onLoadError}
           onRenderSuccess={(page) => {
+            if (page.pageNumber !== currentPage) return;
             const viewport = page.getViewport({ scale: 1 });
             onPageDimensions?.({
               unscaledWidth: viewport.width,
